@@ -1,3 +1,19 @@
+# EMC2 3.1.1
+
+## New features
+
+* added thin to fit/run_emc which can either be set to TRUE to automatically thin based on ESS, or on a numeric to only keep 1/x samples
+
+* added probit/SDT model for bimanual choices
+
+## Bug fixes
+
+* Rare bug in sampling removed
+
+* Small bug fixes in plot_data to make it more flexible
+
+* cleared up argumentation of run_emc/fit
+
 # EMC2 3.1.0
 
 ## New features
