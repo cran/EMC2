@@ -1,6 +1,6 @@
-19b80aa25c2ffb13b703cfa1460f2c2c *DESCRIPTION
+ca91d32b6f4fbad1d44a324fd5db2803 *DESCRIPTION
 5501f82154083472d2e29fb7ab9135cc *NAMESPACE
-f4831924f3a94ff420c8910cd76c4ece *NEWS.md
+9d326957c46c68643d095b385c9a0755 *NEWS.md
 27e70b9b5772ef8e87feafc993fc21ba *R/EMC2-package.R
 50a0cf6ac9477104bf4dc00ae0fb0ac4 *R/MRI.R
 2e5de43cc352345e2c26f19336db098b *R/RcppExports.R
@@ -26,7 +26,7 @@ fcc25f0f7dd2c783c59ec9f3b6ba6104 *R/model_LNR.R
 d5fa0154f11ab4368bac13ec2144c1a6 *R/model_SDT.R
 ca1b45186d53d32c4d45fa95b920311b *R/model_SS.R
 f184c54a729afbb9a2082fb358c752dd *R/new_map.R
-286f640ef77e8fc5b5f881aa73f7606f *R/objects.R
+f2a6477f686bb202eab316c6bb3840d0 *R/objects.R
 0c659ad3087ce0c628b27e0ceedf5726 *R/plot_data.R
 0d915008d3a764d3b503776cb5539d8d *R/plotting.R
 63447e54bd0a2f299837fd37941896e3 *R/priors.R
@@ -48,7 +48,7 @@ b52aabe9a2757fc86742763db9dafc9b *build/partial.rdb
 3385a0f3b7a30f99066b67bdff4cbec7 *data/samples_LNR.rda
 febab7bea11f400e76f169ad8ddca341 *inst/doc/Simulation-based-Calibration.R
 e4a870f61dee7bcdabca48e9bad2fa5b *inst/doc/Simulation-based-Calibration.Rmd
-03980eca9375a0b07099ee5fcbc0da91 *inst/doc/Simulation-based-Calibration.html
+0025ef7b938095cdaa301ab1344e0f1e *inst/doc/Simulation-based-Calibration.html
 eedf5660b941e1366cc0ac3db113d6ab *man/DDM.Rd
 61b6c092537a9707737256c2b022f2b5 *man/DDMGNG.Rd
 dda6e88a07b82fede4338b2775be3e0e *man/EMC2-package.Rd
@@ -161,11 +161,11 @@ e43db9eeee42473afed48c9d82b0fbf3 *tests/testthat/_snaps/Darwin/fit.md
 0ed736b10e1559071ee5d472cd3cd65a *tests/testthat/_snaps/Darwin/variant_funs.md
 3b916cc591f2b22ea8d7437576b7ed0e *tests/testthat/_snaps/RACE.md
 629914699f43d43895de139e38a48cdc *tests/testthat/_snaps/S3.md
-916d3188e114330c241afa2efb680314 *tests/testthat/_snaps/S3/prior-plot.svg
+c9d4defff2832d26ccbcaa835f0af7ff *tests/testthat/_snaps/S3/prior-plot.svg
 52f3498a87efea59c3cf99b16a102f44 *tests/testthat/_snaps/compare.md
 8e98042fd889f0e69a9000a64a99afbe *tests/testthat/_snaps/customLL.md
-1688ca9556eb8ab2bf6950ebd9a07147 *tests/testthat/_snaps/fMRI/prior-fmri.svg
-beec039ec087013583a566dcbf47977e *tests/testthat/_snaps/group.md
+7cc2a08acf6abab103a4bc92ef34056e *tests/testthat/_snaps/fMRI/prior-fmri.svg
+f24d3e92d2820bc9897b45c3f4e23bd4 *tests/testthat/_snaps/group.md
 3d0042dbfa65c8b237bdd6ede9b2afdb *tests/testthat/_snaps/joint.md
 0877deca724267870535f444d8d67cbb *tests/testthat/_snaps/make_design.md
 19fb738fe04ee2766ce85769e3ebe99f *tests/testthat/_snaps/make_emc.md
@@ -185,12 +185,12 @@ f64662fe6b0b07ef76e9b4b336d78ad2 *tests/testthat/_snaps/profile/profile-plot.svg
 8c8ec58b31a22f2cbeb54003d9f023c6 *tests/testthat/_snaps/stopS.md
 4f901cacb6d318ab401f99336bc563fe *tests/testthat/_snaps/trend.md
 bb95e344cf6bf6122fbaf89c4c6af0f4 *tests/testthat/test-RACE.R
-2aedad563804d8d07c4d630199b573fd *tests/testthat/test-S3.R
+736cdbee29f9f92a44b085d9276c9480 *tests/testthat/test-S3.R
 f79991810ab3ac3be8e8467ba3140d30 *tests/testthat/test-compare.R
 13b3d48d6a819ebd3166d010be7c8ddf *tests/testthat/test-customLL.R
-e3941456a36d4437480df999ff3d7e4e *tests/testthat/test-fMRI.R
+9a833621f8e8ef068e36fc0b43da7f86 *tests/testthat/test-fMRI.R
 ebffebf28062e7d7c29f127e7b1c1676 *tests/testthat/test-fit.R
-4a45cd44c4d79058e4cbbd8cf8b0951d *tests/testthat/test-group.R
+78a7970e446846ff1cf08d964bc0e7e2 *tests/testthat/test-group.R
 0ee9e6b98d86761e257bb40d1b505a09 *tests/testthat/test-joint.R
 eb3417e33da87e1f28f711a0821e3686 *tests/testthat/test-make_design.R
 b06c85718ee39071368989fa8e2d62d6 *tests/testthat/test-make_emc.R
