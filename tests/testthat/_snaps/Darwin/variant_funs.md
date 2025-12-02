@@ -1,50 +1,13 @@
-# run_factor
-
-    Code
-      LNR_factor[[1]]$samples$theta_lambda[, , idx]
-    Output
-      NULL
-
----
-
-    Code
-      LNR_factor[[1]]$samples$alpha[, , idx]
-    Output
-                  as1t       bd6t
-      m     -0.8295289 -0.9638242
-      m_lMd -0.2831784 -0.5197682
-      s     -1.0057495 -0.5451441
-      t0    -2.1806935 -1.6467459
-
----
-
-    Code
-      LNR_factor[[1]]$samples$theta_mu[, idx]
-    Output
-               m      m_lMd          s         t0 
-      -1.0028059 -0.5132872 -0.5078411 -1.8032623 
-
----
-
-    Code
-      LNR_factor[[1]]$samples$theta_var[, , idx]
-    Output
-                        m         m_lMd             s            t0
-      m      2.744149e-02  1.769231e-14  1.189351e-14 -1.158945e-14
-      m_lMd  1.769231e-14  6.802777e-02  2.881939e-02 -2.808263e-02
-      s      1.189351e-14  2.881939e-02  1.180234e-01 -1.927401e-02
-      t0    -1.158945e-14 -2.808263e-02 -1.927401e-02  4.215373e-02
-
 # run_diag
 
     Code
       LNR_diag[[1]]$samples$alpha[, , idx]
     Output
                   as1t       bd6t
-      m     -0.8746630 -0.8803158
-      m_lMd -0.3238564 -0.5286320
-      s     -0.9305809 -0.5595418
-      t0    -2.0076934 -1.7339672
+      m     -0.8378073 -0.9872863
+      m_lMd -0.2876366 -0.5898393
+      s     -1.0249672 -0.6047458
+      t0    -2.3783442 -1.7427491
 
 ---
 
@@ -52,18 +15,26 @@
       LNR_diag[[1]]$samples$theta_mu[, idx]
     Output
                m      m_lMd          s         t0 
-      -0.8781100 -0.4785104 -0.6912904 -1.9212876 
+      -0.9743222 -0.6134234 -0.7679532 -2.2539005 
 
 ---
 
     Code
       LNR_diag[[1]]$samples$theta_var[, , idx]
     Output
-                      m      m_lMd          s         t0
-      m     0.001665839 0.00000000 0.00000000 0.00000000
-      m_lMd 0.000000000 0.01593168 0.00000000 0.00000000
-      s     0.000000000 0.00000000 0.03541001 0.00000000
-      t0    0.000000000 0.00000000 0.00000000 0.02246014
+                     m      m_lMd          s       t0
+      m     0.02531788 0.00000000 0.00000000 0.000000
+      m_lMd 0.00000000 0.09894308 0.00000000 0.000000
+      s     0.00000000 0.00000000 0.03923812 0.000000
+      t0    0.00000000 0.00000000 0.00000000 0.106451
+
+---
+
+    Code
+      compare(list(diag = LNR_diag), stage = "preburn", cores_for_props = 1)
+    Output
+             MD wMD  DIC wDIC BPIC wBPIC EffectiveN meanD Dmean minD
+      diag -579   1 1066    1 1916     1        851   215  -607 -635
 
 # run_blocked
 
@@ -71,10 +42,10 @@
       LNR_blocked[[1]]$samples$alpha[, , idx]
     Output
                   as1t       bd6t
-      m     -0.9277165 -0.8420786
-      m_lMd -0.3919777 -0.5142153
-      s     -0.8024551 -0.6875488
-      t0    -1.8154290 -1.8660141
+      m     -0.9668625 -1.0003825
+      m_lMd -0.2819924 -0.5445420
+      s     -0.8501189 -0.5963007
+      t0    -1.9733013 -1.7466873
 
 ---
 
@@ -82,18 +53,26 @@
       LNR_blocked[[1]]$samples$theta_mu[, idx]
     Output
                m      m_lMd          s         t0 
-      -0.8107844 -0.4890125 -0.5082068 -1.7735883 
+      -1.0052941 -1.5321301 -0.9540201 -1.8960213 
 
 ---
 
     Code
       LNR_blocked[[1]]$samples$theta_var[, , idx]
     Output
-                      m      m_lMd          s         t0
-      m     0.003418992 0.00000000 0.00000000 0.00000000
-      m_lMd 0.000000000 0.03850907 0.00000000 0.00000000
-      s     0.000000000 0.00000000 0.05772351 0.03310210
-      t0    0.000000000 0.00000000 0.03310210 0.05980684
+                      m     m_lMd          s         t0
+      m     0.003426314 0.0000000 0.00000000 0.00000000
+      m_lMd 0.000000000 0.7972991 0.00000000 0.00000000
+      s     0.000000000 0.0000000 0.02009918 0.02058433
+      t0    0.000000000 0.0000000 0.02058433 0.04993745
+
+---
+
+    Code
+      compare(list(blocked = LNR_blocked), stage = "preburn", cores_for_props = 1)
+    Output
+                MD wMD  DIC wDIC BPIC wBPIC EffectiveN meanD Dmean minD
+      blocked -527   1 6444    1 9984     1       3540  2904  -611 -636
 
 # run_single
 
@@ -101,20 +80,16 @@
       LNR_single[[1]]$samples$alpha[, , idx]
     Output
                   as1t       bd6t
-      m     -0.8379934 -0.9074886
-      m_lMd -0.4239260 -0.5827497
-      s     -0.9029937 -0.6085757
-      t0    -2.1009790 -1.7736820
+      m     -1.0064461 -0.7239915
+      m_lMd -0.3903504 -0.8186065
+      s     -0.5314815 -0.2610311
+      t0    -1.6904537 -1.8390487
 
-# run_bridge
+---
 
     Code
-      compare(list(single = LNR_single, diag = LNR_diag, factor = LNR_factor,
-        blocked = LNR_blocked), stage = "preburn", cores_for_props = 1)
+      compare(list(single = LNR_single), stage = "preburn", cores_for_props = 1)
     Output
-                MD wMD  DIC wDIC BPIC wBPIC EffectiveN meanD Dmean minD
-      single  -495   0 -417    1 -360     1         57  -474  -531 -531
-      diag    -503   0 -349    0 -230     0        119  -468  -568 -586
-      factor  -557   1 3001    0 4761     0       1759  1242  -510 -517
-      blocked -520   0 -201    0  -10     0        191  -392  -568 -582
+               MD wMD DIC wDIC BPIC wBPIC EffectiveN meanD Dmean minD
+      single -390   1 245    1  599     1        354  -109  -463 -463
 

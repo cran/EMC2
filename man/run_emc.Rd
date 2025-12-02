@@ -19,7 +19,8 @@ run_emc(
   max_tries = 20,
   n_blocks = 1,
   thin = FALSE,
-  trim = TRUE
+  trim = TRUE,
+  r_cores = 1
 )
 }
 \arguments{
@@ -60,6 +61,8 @@ conditions as specified by stop_criteria? Defaults to 20. max_tries is ignored i
 Can also be set to a double, in which case 1/thin of the chain will be removed (does not have to be an integer).}
 
 \item{trim}{A boolean. If \code{TRUE} will automatically remove redundant samples (i.e. from preburn, burn, adapt).}
+
+\item{r_cores}{An integer for number of cores to use in R-based likelihood calculations, default 1.}
 }
 \value{
 An emc object
@@ -77,10 +80,10 @@ design_in <- design(data = forstmann,model=DDM,
                            formula =list(v~0+S,a~E, t0~1, s~1, Z~1),
                            constants=c(s=log(1)))
 # Then make the emc, we've omitted a prior here for brevity so default priors will be used.
-emc <- make_emc(forstmann, design_in)
+emc <- make_emc(forstmann, design_in, compress = FALSE)
 
 # Now for example we can specify that we only want to run the "preburn" phase
 # for MCMC 10 iterations
-emc <- run_emc(emc, stage = "preburn", stop_criteria = list(iter = 10), cores_for_chains = 1)
+# emc <- run_emc(emc, stage = "preburn", stop_criteria = list(iter = 10), cores_for_chains = 1)
 }
 }

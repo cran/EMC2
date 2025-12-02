@@ -1,6 +1,6 @@
 Package: EMC2
 Title: Bayesian Hierarchical Analysis of Cognitive Models of Choice
-Version: 3.2.1
+Version: 3.3.0
 Authors@R: 
     c(person("Niek", "Stevenson", email = "niek.stevenson@gmail.com", 
            role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3206-7544")),
@@ -35,19 +35,20 @@ URL: https://ampl-psych.github.io/EMC2/,
         https://github.com/ampl-psych/EMC2
 BugReports: https://github.com/ampl-psych/EMC2/issues
 Encoding: UTF-8
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr
-Suggests: testthat (>= 3.0.0), vdiffr, knitr, rmarkdown
+Suggests: testthat (>= 3.0.0), vdiffr, knitr, rmarkdown, DiagrammeR
 Config/testthat/edition: 3
 Imports: abind, coda, graphics, grDevices, magic, MASS, matrixcalc,
         methods, msm, mvtnorm, parallel, stats, Matrix, Rcpp,
-        Brobdingnag, corrplot, colorspace, psych, utils, lpSolve, WienR
+        Brobdingnag, corrplot, colorspace, psych, utils, lpSolve,
+        WienR,
 LinkingTo: Rcpp, RcppArmadillo
 Depends: R (>= 3.5.0)
 LazyData: true
 Config/testthat/parallel: true
 NeedsCompilation: yes
-Packaged: 2025-09-22 12:39:26 UTC; nstevenson
+Packaged: 2025-12-02 02:19:34 UTC; nstevenson
 Author: Niek Stevenson [aut, cre] (ORCID:
     <https://orcid.org/0000-0003-3206-7544>),
   Michelle Donzallaz [aut],
@@ -64,4 +65,4 @@ Author: Niek Stevenson [aut, cre] (ORCID:
   Jason H. Stover [ctb]
 Maintainer: Niek Stevenson <niek.stevenson@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-09-22 13:10:08 UTC
+Date/Publication: 2025-12-02 07:00:02 UTC
