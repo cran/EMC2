@@ -81,7 +81,7 @@ prior_LBA <- prior(design_LBA, type = "diagonal-gamma",
 
 
 ## ----fig.alt = "Prior for LBA hierarchical model", fig.height = 5-------------
-plot(prior_LBA, selection = "alpha", N = 1e3)
+plot(prior_LBA, selection = "alpha", N = 1e3, subject = 1)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # SBC_LBA <- run_sbc(design_LBA, prior_LBA, replicates = 500, trials = 100,

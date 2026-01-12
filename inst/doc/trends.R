@@ -379,3 +379,7 @@ design_posttrans <- design(
 #   model = LNR
 # )
 
+## ----eval = FALSE-------------------------------------------------------------
+# load('./emc_samples_with_custom_trend.RData')
+# emc <- fix_custom_kernel_pointers(emc, trend_custom)
+

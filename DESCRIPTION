@@ -1,12 +1,14 @@
 Package: EMC2
 Title: Bayesian Hierarchical Analysis of Cognitive Models of Choice
-Version: 3.3.0
+Version: 3.4.1
 Authors@R: 
     c(person("Niek", "Stevenson", email = "niek.stevenson@gmail.com", 
            role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3206-7544")),
       person("Michelle", "Donzallaz", role = c("aut")),
       person("Andrew", "Heathcote", role = c("aut")),
-      person("Steven", "Miletić", role = c("ctb")),
+      person("Steven", "Miletić", role = c("aut")),
+      person("Luke", "Strickland", role = c("ctb")),
+      person("Frank", "Hezemans", role = c("ctb")),
       person("Raphael", "Hartmann", role = c("ctb")),
       person("Karl C.", "Klauer", role=c("ctb")),
       person("Steven G.", "Johnson", role=c("ctb")),
@@ -48,12 +50,14 @@ Depends: R (>= 3.5.0)
 LazyData: true
 Config/testthat/parallel: true
 NeedsCompilation: yes
-Packaged: 2025-12-02 02:19:34 UTC; nstevenson
+Packaged: 2026-01-12 09:44:01 UTC; nstevenson
 Author: Niek Stevenson [aut, cre] (ORCID:
     <https://orcid.org/0000-0003-3206-7544>),
   Michelle Donzallaz [aut],
   Andrew Heathcote [aut],
-  Steven Miletić [ctb],
+  Steven Miletić [aut],
+  Luke Strickland [ctb],
+  Frank Hezemans [ctb],
   Raphael Hartmann [ctb],
   Karl C. Klauer [ctb],
   Steven G. Johnson [ctb],
@@ -65,4 +69,4 @@ Author: Niek Stevenson [aut, cre] (ORCID:
   Jason H. Stover [ctb]
 Maintainer: Niek Stevenson <niek.stevenson@gmail.com>
 Repository: CRAN
-Date/Publication: 2025-12-02 07:00:02 UTC
+Date/Publication: 2026-01-12 10:10:02 UTC
