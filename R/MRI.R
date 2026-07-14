@@ -1,4 +1,4 @@
-apply_contrasts <- function(events, contrast = NULL, cell_coding = FALSE, remove_intercept = TRUE) {
+apply_contrasts <- function(events, contrast = NULL, cell_coding = FALSE, remove_intercept = TRUE, levels = NULL) {
   factor_name <- events$factor[1]
   colnames(events)[colnames(events) == "event_type"] <- factor_name
 
@@ -7,16 +7,17 @@ apply_contrasts <- function(events, contrast = NULL, cell_coding = FALSE, remove
     if(is.matrix(contrast)){
       if(!is.null(rownames(contrast))){
         events[[factor_name]] <- factor(events[[factor_name]], levels = rownames(contrast))
-      } else{
-        events[[factor_name]] <- factor(events[[factor_name]])
+      } else {
+        ## use levels provided
+        events[[factor_name]] <- factor(events[[factor_name]], levels = levels)
       }
       stats::contrasts(events[[factor_name]], how.many = ncol(contrast)) <- contrast
     } else {
-      events[[factor_name]] <- factor(events[[factor_name]])
+      events[[factor_name]] <- factor(events[[factor_name]], levels = levels)
       stats::contrasts(events[[factor_name]]) <- do.call(contrast, list(n = length(unique(events[[factor_name]]))))
     }
   } else {
-    events[[factor_name]] <- factor(events[[factor_name]])
+    events[[factor_name]] <- factor(events[[factor_name]], levels = levels)
     # R's default contrasts will be used.
   }
 
@@ -249,12 +250,14 @@ convolve_design_matrix <- function(timeseries, events, factors = NULL, contrasts
 
       for(fact in names(factors)){
         idx <- ev_run$event_type %in% factors[[fact]]
+        if(!any(idx)) next
         ev_run$factor[idx] <- fact
         tmp <- ev_run[idx, ]
         new_tmp <- apply_contrasts(tmp, contrast = contrasts[[fact]],
-                                   cell_coding = fact %in% cell_coding)
+                                   cell_coding = fact %in% cell_coding,
+                                   levels = factors[[fact]])
         rownames(new_tmp) <- NULL
-        new_tmp <- cbind(event_type = ev_run$event_type[idx], new_tmp)
+        new_tmp <- cbind(event_type = new_tmp$regressor, new_tmp)
         ev_tmp <- rbind(ev_tmp, new_tmp)
       }
 
@@ -297,11 +300,22 @@ convolve_design_matrix <- function(timeseries, events, factors = NULL, contrasts
       if(add_constant) dm$constant <- 1
       dms_sub[[as.character(run)]] <- dm
     }
+    dms_sub <- Filter(Negate(is.null), dms_sub)
+    dm_cols <- unique(unlist(lapply(dms_sub, colnames), use.names = FALSE))
+    dms_sub <- lapply(dms_sub, function(dm) {
+      for(col in setdiff(dm_cols, colnames(dm))) dm[[col]] <- 0
+      dm[, dm_cols, drop = FALSE]
+    })
     dms_sub <- do.call(rbind, dms_sub)
     dms_sub[abs(dms_sub) < cut_off] <- 0
     rownames(dms_sub) <- NULL
     all_dms[[as.character(subject)]] <- dms_sub
   }
+  dm_cols <- unique(unlist(lapply(all_dms, colnames), use.names = FALSE))
+  all_dms <- lapply(all_dms, function(dm) {
+    for(col in setdiff(dm_cols, colnames(dm))) dm[[col]] <- 0
+    dm[, dm_cols, drop = FALSE]
+  })
   if(scale){
     full_dm <- do.call(rbind, all_dms)
     maxs <- apply(full_dm, 2, max)
@@ -650,7 +664,7 @@ MRI <- function(){
         return(y_sim)
       },
       log_likelihood=function(pars, dadm, model, min_ll=log(1e-10)){
-        # Here pars is already multiplied by design matrix in map_p
+        # Here pars already contains the mapped design contributions.
         y <- as.matrix(dadm[,!colnames(dadm) %in% c("subjects", 'run', 'time', "trials")])
         # grab the right parameters
         sigma <- pars[,ncol(pars)]
@@ -725,7 +739,7 @@ MRI_AR1 <- function(){
         return(y_sim)
       },
       log_likelihood = function(pars, dadm, model, min_ll = log(1e-10)) {
-        # Here pars is already multiplied by design matrix in map_p
+        # Here pars already contains the mapped design contributions.
 
         # Extract observed data (as a vector)
         y <- as.vector(as.matrix(dadm[, !colnames(dadm) %in% c("subjects", "run", "time", "trials")]))
@@ -1279,11 +1293,7 @@ make_data_fMRI <- function(parameters, model, data, design, ...){
   # if(is.null(attr(design, "design_matrix"))){
   #   stop("for fMRI simulation the original design needs to be passed to the simulation function")
   # }
-  pars <- t(apply(parameters, 1, do_pre_transform, model()$pre_transform))
-  pars <- map_p(add_constants(pars,design$constants),data, model())
-  pars <- do_transform(pars, model()$transform)
-  pars <- model()$Ttransform(pars, data)
-  pars <- add_bound(pars, model()$bound)
+  pars <- get_pars_matrix_oo(parameters, data, model())
   data[, !colnames(data) %in% c("subjects", "run", "time", "trials")] <- model()$rfun(pars)
   return(data)
 }
@@ -1292,4 +1302,3 @@ add_design_fMRI_predict <- function(design, emc){
   design$fMRI_design <- lapply(emc[[1]]$data, function(x) return(attr(x,"designs")))
   return(design)
 }
-

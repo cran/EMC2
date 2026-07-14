@@ -26,11 +26,11 @@ plot(prior_LBA, N = 1e3)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # SBC_LBA_single <- run_sbc(design_LBA, prior_LBA, replicates = 500, trials = 100, plot_data = FALSE,
-#                   iter = 1000, n_post = 1000, fileName = "SBC_data/SBC_LBA_single.RData",
+#                   iter = 1000, n_post = 1000, fileName = "data/SBC_LBA_single.RData",
 #                   cores_per_chain = 30)
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_LBA_single.RData")
+load("data/SBC_LBA_single.RData")
 
 ## ----fig.height = 6, fig.alt = "Histogram SBC LBA single"---------------------
 plot_sbc_hist(SBC_LBA_single, bins = 10)
@@ -52,11 +52,11 @@ plot_sbc_ecdf(SBC_LBA_single)
 #                   psd = c(.15, .15, .1, .05, .15, .15, .15))
 # 
 # SBC_DDM_single <- run_sbc(design_DDM, prior_DDM, replicates = 500, trials = 100,
-#                           fileName = "SBC_data/SBC_DDM_single.RData", cores_per_chain = 30)
+#                           fileName = "data/SBC_DDM_single.RData", cores_per_chain = 30)
 # 
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_DDM_single.RData")
+load("data/SBC_DDM_single.RData")
 
 ## ----fig.height = 6, fig.alt = "ecdf DDM single", fig.width= 10---------------
 plot_sbc_ecdf(SBC_DDM_single)
@@ -85,10 +85,10 @@ plot(prior_LBA, selection = "alpha", N = 1e3, subject = 1)
 
 ## ----eval=FALSE---------------------------------------------------------------
 # SBC_LBA <- run_sbc(design_LBA, prior_LBA, replicates = 500, trials = 100,
-#                         n_subjects = n_subjects, fileName = "SBC_data/SBC_LBA.RData", cores_per_chain = 30)
+#                         n_subjects = n_subjects, fileName = "data/SBC_LBA.RData", cores_per_chain = 30)
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_LBA.RData")
+load("data/SBC_LBA.RData")
 
 ## ----fig.height = 6, fig.alt = "ECDF SBC LBA"---------------------------------
 plot_sbc_ecdf(SBC_LBA)
@@ -112,10 +112,10 @@ prior_DDM <- prior(design_DDM, type = "diagonal-gamma",
 
 ## ----eval=FALSE---------------------------------------------------------------
 # SBC_DDM <- run_sbc(design_DDM, prior_DDM, replicates = 250, trials = 200,
-#                         n_subjects = n_subjects, fileName = "SBC_data/SBC_DDM.RData", cores_per_chain = 30)
+#                         n_subjects = n_subjects, fileName = "data/SBC_DDM.RData", cores_per_chain = 30)
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_DDM.RData")
+load("data/SBC_DDM.RData")
 
 ## ----fig.height = 7, fig.alt = "ECDF SBC DDM"---------------------------------
 plot_sbc_ecdf(SBC_DDM)
@@ -144,7 +144,7 @@ plot_sbc_ecdf(SBC_DDM)
 # 
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_RDM.RData")
+load("data/SBC_RDM.RData")
 
 ## ----fig.height = 6, fig.alt = "ECDF SBC RDM"---------------------------------
 plot_sbc_ecdf(SBC_RDM)
@@ -171,7 +171,7 @@ plot_sbc_ecdf(SBC_RDM)
 # 
 
 ## ----include=FALSE------------------------------------------------------------
-load("SBC_data/SBC_LNR.RData")
+load("data/SBC_LNR.RData")
 
 ## ----fig.height = 6, fig.alt = "ECDF SBC RDM"---------------------------------
 plot_sbc_ecdf(SBC_LNR, layout = c(2,2))

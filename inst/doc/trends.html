@@ -395,11 +395,6 @@ bases. The timing of when a trend is applied is controlled by
 ##   delta: Standard delta rule kernel: k = q[i].
 ##          Updates q[i] = q[i-1] + alpha * (c[i-1] - q[i-1]).
 ##          Parameters: q0 (initial value), alpha (learning rate).
-##   delta2kernel: Dual kernel delta rule: k = q[i].
-##           Combines fast and slow learning rates
-##           and switches between them based on dSwitch.
-##           Parameters: q0 (initial value), alphaFast (fast learning rate),
-##           propSlow (alphaSlow = propSlow * alphaFast), dSwitch (switch threshold).
 ##   delta2lr: Dual learning rate delta rule: k = q[i].
 ##           Like the standard delta rule, but with separate
 ##           learning rates for positive and negative prediction errors.
@@ -408,7 +403,6 @@ bases. The timing of when a trend is applied is controlled by
 ## 
 ## Available base types:
 ##   lin: Linear base: parameter + w * k
-##   exp_lin: Exponential linear base: exp(parameter) + exp(w) * k
 ##   centered: Centered mapping: parameter + w*(k - 0.5)
 ##   add: Additive base: parameter + k
 ##   identity: Identity base: k
@@ -510,7 +504,7 @@ formulated use <code>trend_help()</code>.</p>
 ## Increasing linear kernel: k = c 
 ##  
 ## Available bases, first is the default: 
-## lin, exp_lin, centered 
+## lin, centered 
 ## </code></pre>
 <p>The function tells us how the kernel maps the covariate to the kernel
 <code>k</code>. In this case the kernel <code>k</code> is just the
@@ -640,25 +634,15 @@ trend_delta &lt;- make_trend(
 trend_delta2 &lt;- make_trend(
   par_names = &quot;v&quot;,
   cov_names = &quot;trial_nr&quot;,
-  kernels = &quot;delta2kernel&quot;
+  kernels = &quot;delta2lr&quot;
 )</code></pre>
-<p>Delta rules are useful for learning processes. The standard delta
-rule updates based on prediction error. The dual‑rate rule uses fast and
-slow learning rates, switching between them based on discrepancies.</p>
+<p>Delta rules are useful for modelling learning processes. The standard
+delta rule updates each trial based on prediction error. The dual‑kernel
+rule uses fast and slow learning rates, switching between them based on
+discrepancies.</p>
 <p>Each kernel has supported bases. You can leave bases to defaults or
 set them explicitly. Changing bases can reflect different
-interpretations of how <code>k</code> enters the parameter:</p>
-<pre class="r"><code>trend_exp_incr &lt;- make_trend(
-  par_names = &quot;v&quot;,
-  cov_names = &quot;trial_nr&quot;,
-  kernels = &quot;exp_incr&quot;,
-  bases =  &quot;exp_lin&quot;
-)</code></pre>
-<p>For example with base <code>lin</code>:
-<code>v &lt;- v + B0 * k</code>. With base <code>exp_lin</code>:
-<code>v &lt;- exp(v) + exp(B0) * k</code>. The latter can be useful when
-the parameter operates on a multiplicative or positively constrained
-scale.</p>
+interpretations of how <code>k</code> enters the parameter.</p>
 </div>
 </div>
 <div id="multiple-trends" class="section level2">
@@ -844,9 +828,9 @@ other value.</p>
 <div id="trialwise-evaluation-and-conditional-covariates" class="section level3">
 <h3>Trial‑wise evaluation and conditional covariates</h3>
 <ul>
-<li>Delta‑rule kernels (<code>delta</code>, <code>delta2kernel</code>,
-<code>delta2lr</code>) are sequential by construction; they update
-across trials within a subject.</li>
+<li>Delta‑rule kernels (<code>delta</code>, <code>delta2lr</code>) are
+sequential by construction; they update across trials within a
+subject.</li>
 <li>Using behavioral covariates (e.g., <code>rt</code>, response
 <code>R</code>, or outputs of functions in the design) can force a
 trial‑wise evaluation path so that data generation is not conditional on
@@ -920,7 +904,7 @@ the full names to place on the left-hand side of a formula. Names
 follow:</p>
 <ul>
 <li>Base parameter: <code>&lt;targetParam&gt;.w</code> (for bases like
-<code>lin</code>, <code>exp_lin</code>, <code>centered</code>)</li>
+<code>lin</code>, <code>centered</code>)</li>
 <li>Kernel parameters:
 <code>&lt;targetParam&gt;.&lt;default_par_name&gt;</code> (e.g.,
 <code>d1</code>, <code>d2</code>, … for <code>poly*</code>;
@@ -1184,8 +1168,6 @@ with mapping and transformations</li>
 <ul>
 <li><code>lin</code>: additive on the parameter scale
 (<code>θ &lt;- θ + B0 * k</code>)</li>
-<li><code>exp_lin</code>: additive on an exponentialized parameter
-(<code>θ &lt;- exp(θ) + exp(B0) * k</code>)</li>
 <li><code>centered</code>: centers <code>k</code> at 0.5 before scaling
 (<code>θ &lt;- θ + B0*(k - 0.5)</code>)</li>
 <li><code>add</code>: parameter is <code>θ &lt;- θ + k</code> (no base

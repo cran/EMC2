@@ -1,4 +1,4 @@
-robust_hist <- function(ps, breaks = 50, cutoff = 0.0015, do_plot = TRUE, ...){
+robust_hist <- function(ps, breaks = 50, cutoff = 0.0015, do_plot = TRUE, prob = FALSE, ...){
   ps <- ps[abs(ps) < 1000]
   for(i in 1:log10(length(ps))){
     cuts <- cut(ps, breaks = breaks)
@@ -7,13 +7,11 @@ robust_hist <- function(ps, breaks = 50, cutoff = 0.0015, do_plot = TRUE, ...){
     ps <- ps[cuts %in% names(good_cuts)[good_cuts]]
   }
   if(do_plot){
-    hist(ps, breaks = breaks, ...)
+    hist(ps, breaks = breaks, freq = !prob, ...)
   } else{
     return(ps)
   }
-
 }
-
 robust_density <- function(ps,r,bw,adjust,use_robust=FALSE)
   # density estimate over range r (to avoid outlier influence, used
   # here for hyper co/variance which can have long tails)
@@ -37,192 +35,22 @@ robust_density <- function(ps,r,bw,adjust,use_robust=FALSE)
 plot_roc <- function(data,signalFactor="S",zROC=FALSE,qfun=NULL,main="",lim=NULL)
 
 {
-  tab <- table(data$R,data[[signalFactor]])
-  ctab <- 1-apply(t(tab)/apply(tab,2,sum),1,cumsum)[-dim(tab)[1],] # p(Signal)
+  ctab <- .choice_roc_coords(data, signalFactor = signalFactor, zROC = zROC,
+                             qfun = if (is.null(qfun)) qnorm else qfun)
   if (!zROC) {
     if (!is.null(lim)) {xlim <- lim; ylim <- lim} else
     {xlim <- c(0,1); ylim <- c(0,1)}
-    plot(ctab[,1],ctab[,2],xlab="p(FA)",ylab="p(H)",xlim=xlim,ylim=ylim,main=main)
-    lines(ctab[,1],ctab[,2])
+    plot(ctab[, "x"],ctab[, "y"],xlab="p(FA)",ylab="p(H)",xlim=xlim,ylim=ylim,main=main)
+    lines(ctab[, "x"],ctab[, "y"])
     abline(a=0,b=1,lty=3)
   } else {
-    ctab <- qfun(ctab)
-    ctab <- ctab[apply(ctab,1,function(x){all(is.finite(x))}),]
     if (is.null(lim)) lim <- c(min(ctab),max(ctab))
-    plot(ctab[,1],ctab[,2],main=main,
+    plot(ctab[, "x"],ctab[, "y"],main=main,
          xlab="z(FA)",ylab="z(H)",xlim=lim,ylim=lim)
-    lines(ctab[,1],ctab[,2])
+    lines(ctab[, "x"],ctab[, "y"])
     abline(a=0,b=1,lty=3)
   }
   invisible(ctab)
-}
-
-# #' Plots choice data
-# #'
-# #' Plots choice data with no response times.
-# #'
-# #' @param data A data frame. The experimental data in EMC2 format with at least `subject` (i.e., the
-# #' subject factor), `R` (i.e., the response factor) and `rt` (i.e., response time) variable.
-# #' Additional factor variables of the design are optional.
-# #' @param pp Posterior predictives created by `predict()`
-# #' @param subject Integer or string picking out subject(s).
-# #' @param factors Character vector of factors in data to display separately. If
-# #' `NULL` (i.e., the default), use names of all columns in data except `trials`,`R`, and `rt`.
-# #' Omitted factors are aggregated over. If `NA`, treats entire data set as a single cell.
-# #' If `stat` is used, the default is changed to `NA`.
-# #' @param functions A named list of functions that create new factors which can then be
-# #' used by the `factors` and `stat` arguments.
-# #' @param stat A function that takes a the data and returns a single value.
-# #' @param stat_name A string naming what the `stat` argument calculates.
-# #' @param adjust Control of smoothing in density plots
-# #' @param ci Credible interval and central tendency quantiles for return when
-# #' stat argument is supplied (defaults to the 2.5\\%, the 50\\% and the 97.5\\%
-# #' quantiles)
-# #' @param do_plot Boolean (defaults to `TRUE`) whether a plot should be created or not
-# #' @param xlim x-axis plot limit, 2-vector (same for all) or matrix (one row for each paramter)
-# #' @param ylim y-axis plot limit, 2-vector (same for all) or matrix (one row for each paramter)
-# #' @param main Text title, pasted before cell name.
-# #' @param layout 2-vector specifying `par(mfrow)` or `par(mfcol)`. The default `NULL` uses current,
-# #' `NA` keeps `par` currently active.
-# #' @param mfcol Boolean for `layout` settings, the default `TRUE` uses `mfcol`, else `mfrow`.
-# #' @param signalFactor Character name of factor for the signal
-# #' @param zROC Boolean, plot Z transformed ROC (defaults to `FALSE`)
-# #' @param qfun Type of Z transform (defaults to probit)
-# #' @param lim `x` = `y` limit for ROC plots
-# #' @param rocfit_cex Size of points in ROC plot (default 0.5)
-# #'
-# #' @return If stat argument is provided a matrix of observed values and predicted quantiles
-# #' is returned
-plot_fit_choice <- function(data,pp,subject=NULL,factors=NULL,functions=NULL,
-                            stat=NULL,stat_name="",adjust=1,
-                            ci=c(.025,.5,.975),do_plot=TRUE,
-                            xlim=NULL,ylim=NULL,main="",
-                            layout=NULL,mfcol=TRUE,
-                            signalFactor="S",zROC=FALSE,qfun=qnorm,lim=NULL,rocfit_cex=.5)
-{
-  oldpar <- par(no.readonly = TRUE) # code line i
-  on.exit(par(oldpar)) # code line i + 1
-  if (!is.null(stat) & is.null(factors)) factors <- NA
-  if (!is.null(subject)) {
-    snams <- levels(data$subjects)
-    if (is.numeric(subject)) subject <- snams[subject]
-    if (!all(subject %in% snams)) stop("Subject(s) not present\n")
-    dat <- droplevels(data[data$subjects %in% subject,])
-    pp <- droplevels(pp[pp$subjects %in% subject,])
-    if (length(subject>1))
-      fnams <- names(dat)[!(names(dat) %in% c("trials","R","rt"))] else
-        fnams <- names(dat)[!(names(dat) %in% c("subjects","trials","R","rt"))]
-  } else {
-    dat <- data
-    if("subjects" %in% factors){
-      fnams <- names(dat)[!(names(dat) %in% c("trials","R","rt"))]
-    } else{
-      fnams <- names(dat)[!(names(dat) %in% c("subjects", "trials","R","rt"))]
-    }
-  }
-
-  okd <- !is.na(dat$R) & is.finite(dat$rt)
-  okpp <- !is.na(pp$R) & is.finite(pp$rt)
-
-  if (!is.null(functions)) for (i in 1:length(functions)) {
-    dat <- cbind.data.frame(functions[[i]](dat),dat)
-    names(dat)[1] <- names(functions)[i]
-    pp <- cbind.data.frame(functions[[i]](pp),pp)
-    names(pp)[1] <- names(functions)[i]
-    fnams <- c(names(functions)[i],fnams)
-  }
-
-  if (!is.null(factors)) {
-    if (any(is.na(factors))) fnams <- NA else {
-      if (!all(factors %in% fnams))
-        stop("factors must name factors in data")
-      fnams <- factors
-    }
-  }
-  if (!any(is.na(layout))) if (!is.null(layout))
-    if (mfcol) par(mfcol=layout) else par(mfrow=layout)
-
-  if (!all(is.na(data$rt))) stop("Use plot_fit for rt data")
-
-  if (length(levels(data$R))==2 & is.null(stat))
-    stop("No plots for binary responses, use an accuracy function in stat arguement.")
-  if (!is.null(stat)) { # statistic
-    if (!any(is.na(fnams))) {
-      cells <- dat[,fnams,drop=FALSE]
-      for (i in fnams) cells[,i] <- paste(i,cells[,i],sep="=")
-      cells <- apply(cells,1,paste,collapse=" ")
-      pp_cells <- pp[,fnams,drop=FALSE]
-      for (i in fnams) pp_cells[,i] <- paste(i,pp_cells[,i],sep="=")
-      pp_cells <- apply(pp_cells,1,paste,collapse=" ")
-      postn <- unique(pp$postn)
-      ucells <- sort(unique(cells))
-    } else {
-      ucells <- ""
-      postn <- unique(pp$postn)
-    }
-    tab <- matrix(nrow=length(ucells),ncol=4,
-                  dimnames=list(ucells,c("Observed",names(quantile(1:5,ci)))))
-    for (i in ucells) {
-      if (i=="") {
-        obs <- stat(dat)
-        ppi <- pp
-        pred <- sapply(postn,function(x){stat(ppi[ppi$postn==x,])})
-        tab[1,] <- c(obs,quantile(pred,ci))
-      } else {
-        obs <- stat(dat[cells==i,])
-        ppi <- pp[pp_cells==i,]
-        pred <- sapply(postn,function(x){stat(ppi[ppi$postn==x,])})
-        tab[i,] <- c(obs,quantile(pred,ci))
-      }
-      if (do_plot) {
-        dens <- density(pred,adjust=adjust)
-        if (!is.null(xlim)) xlimi <- xlim else
-          xlimi <- c(pmin(obs,min(dens$x)),pmax(obs,max(dens$x)))
-        plot(dens,main=paste(main,i),xlab=stat_name,xlim=xlimi)
-        abline(v=obs)
-      }
-
-    }
-    invisible(tab)
-  } else {
-    if (!any(fnams==signalFactor))
-      stop("Data does not have a column specified in the signalFactor argument: ",signalFactor)
-    if (length(levels(data[[signalFactor]]))!=2)
-      stop("signalFactor must have exactly two levels for an ROC plot")
-    if (zROC & is.null(qfun))
-      stop("Must supply qfun for zROC")
-    fnams <- fnams[fnams != signalFactor]
-    if (!any(is.na(fnams))) {
-      cells <- dat[,fnams,drop=FALSE]
-      for (i in fnams) cells[,i] <- paste(i,cells[,i],sep="=")
-      cells <- apply(cells,1,paste,collapse=" ")
-      pp_cells <- pp[,fnams,drop=FALSE]
-      for (i in fnams) pp_cells[,i] <- paste(i,pp_cells[,i],sep="=")
-      pp_cells <- apply(pp_cells,1,paste,collapse=" ")
-      ucells <- sort(unique(cells))
-    } else ucells <- ""
-    postn <- unique(pp$postn)
-    for (i in ucells) {
-      if (i=="") {
-        dati <- dat
-        ppi <- pp
-      } else {
-        dati <- dat[cells==i,]
-        ppi <- pp[pp_cells==i,]
-      }
-      dpts <- plot_roc(dati,zROC=zROC,qfun=qfun,lim=lim,main=paste(main,i),signalFactor=signalFactor)
-      tab <- table(ppi$postn,ppi$R,ppi[[signalFactor]])
-      ctab <- apply(tab,1,function(x){list(1-apply(t(x)/apply(x,2,sum),1,cumsum)[-dim(x)[1],])})
-      if (!zROC) lapply(ctab,function(x){
-        points(x[[1]][,1],x[[1]][,2],col="grey",pch=16,cex=rocfit_cex)
-      }) else ctab <- lapply(ctab,function(x){
-        x[[1]] <- qnorm(x[[1]])
-        points(x[[1]][row.names(dpts),1],x[[1]][row.names(dpts),2],col="grey",pch=16,cex=rocfit_cex)
-      })
-      points(dpts[,1],dpts[,2])
-      lines(dpts[,1],dpts[,2])
-    }
-  }
 }
 
 #' Plot Within-Chain Correlations
@@ -434,6 +262,9 @@ plot_pars <- function(emc,layout=NA, selection="mu", show_chains = FALSE, plot_p
   oldpar <- par(no.readonly = TRUE) # code line i
   on.exit(par(oldpar)) # code line i + 1
   dots <- list(...)
+  # allow for setting par outside of this function (needed because par(mfrow=...) always overwrites the cex argument as well)
+  set.par <- !isFALSE(dots$set.par)
+  dots$set.par <- NULL
   type <- emc[[1]]$type
   if(length(dots$subject) == 1 || emc[[1]]$n_subjects == 1) dots$by_subject <- TRUE
   if(type == "single" & !(selection %in% c("LL", "alpha"))) selection <- "alpha"
@@ -470,6 +301,7 @@ plot_pars <- function(emc,layout=NA, selection="mu", show_chains = FALSE, plot_p
 
   n_objects <- length(MCMC_samples)
   contraction_list <- list()
+
   for(i in 1:n_objects){
     cur_mcmc <- MCMC_samples[[i]]
     all_cols <- unique(unlist(lapply(cur_mcmc, colnames)))
@@ -487,10 +319,12 @@ plot_pars <- function(emc,layout=NA, selection="mu", show_chains = FALSE, plot_p
     n_chains <- length(cur_mcmc)
     n_pars <- ncol(merged)
     cur_contraction <- setNames(numeric(n_pars), colnames(merged))
-    if(any(is.na(layout))){
-      par(mfrow = coda_setmfrow(Nchains = n_chains, Nparms = n_pars, nplots = 1))
-    } else{
-      par(mfrow=layout)
+    if(set.par) {
+      if(any(is.na(layout))){
+        par(mfrow = coda_setmfrow(Nchains = n_chains, Nparms = n_pars, nplots = 1))
+      } else{
+        par(mfrow=layout)
+      }
     }
     for(l in 1:n_pars){
       denses <- lapply(cur_mcmc, function(x){
@@ -722,112 +556,332 @@ coda_setmfrow <- function (Nchains = 1, Nparms = 1, nplots = 1, sepplot = FALSE)
 }
 
 
+
 #' Plots trends over time
 #'
-#' Plots the trend for selected parameters of a model. Can be used either with a p_vector, or trial-wise parameters or covariates obtained
-#' from predict()
+#' Plots the trend for selected parameters of a model. Can be used either with a p_vector,
+#' or trial-wise parameters or covariates obtained from predict(). Optionally overlays
+#' a ground-truth trajectory for recovery evaluation.
 #'
-#' @param input_data a p_vector or posterior predictives compatible with the provided emc object
-#' @param emc An emc object
-#' @param par_name Parameter name (or covariate name) to plot
-#' @param subject Subject number to plot
-#' @param filter Optional function that takes a data frame and returns a logical vector indicating which rows to include in the plot
-#' @param on_x_axis Column name in the `dadm` to plot on the x-axis. By default 'trials'.
-#' @param pp_shaded Boolean. If `TRUE` will plot 95% credible interval as a shaded area. Otherwise plots separate lines for each iteration of the posterior predictives. Only applicable if `input_data` are posterior predictives.
-#' @param ... Optional arguments that can be passed to `plots`.
+#' @param input_data A p_vector or posterior predictives compatible with the provided emc object.
+#'   If posterior predictives, should be the output of \code{predict(..., return_trialwise_parameters = TRUE)}.
+#' @param emc An emc object.
+#' @param par_name Parameter name (or covariate name) to plot.
+#' @param true_trajectories Optional. A data frame with columns \code{subjects}, the column named
+#'   by \code{on_x_axis}, and at least \code{par_name}. If supplied, the true trajectory is
+#'   overlaid as a dashed black line, and \code{ylim} expands to include it.
+#' @param subject Subject to plot. If NULL, plots all subjects separately.
+#'   Ignored when \code{group_average = TRUE}.
+#' @param filter Optional function that takes a data frame and returns a logical vector
+#'   indicating which rows to include. For race models, should select one accumulator,
+#'   e.g. \code{function(d) d$lR == 'left'}.
+#' @param on_x_axis Column name to plot on the x-axis. Default \code{'trials'}.
+#' @param pp_shaded Logical. If TRUE, plots 95% credible interval as a shaded area.
+#'   Otherwise plots separate lines for each posterior predictive iteration.
+#'   Only applicable when \code{input_data} is posterior predictives.
+#' @param group_average Logical. If TRUE, plots a single panel averaged across subjects
+#'   rather than one panel per subject.
+#' @param layout Optional integer vector of length 2 to override the automatic mfrow layout.
+#'   Ignored when \code{group_average = TRUE}.
+#' @param ... Optional arguments passed to \code{plot()}.
 #'
-#' @return A trend plot
+#' @return Invisibly returns the credible interval data frame when \code{input_data} is
+#'   posterior predictives, otherwise NULL.
 #' @export
-#'
-#' @examples
-#' dat <- EMC2:::add_trials(forstmann)
-#' dat$trials2 <- dat$trials/1000
-#'
-#' lin_trend <- make_trend(cov_names='trials2',
-#'                         kernels = 'exp_incr',
-#'                         par_names='B',
-#'                         bases='lin',
-#'                         phase = "premap")
-#'
-#' design_RDM_lin_B <- design(model=RDM,
-#'                            data=dat,
-#'                            covariates='trials2',   # specify relevant covariate columns
-#'                            matchfun=function(d) d$S==d$lR,
-#'                            transform=list(func=c('B'='identity')),
-#'                            formula=list(B ~ 1, v ~ lM, t0 ~ 1),
-#'                            trend=lin_trend)       # add trend
-#'
-#' emc <- make_emc(dat, design=design_RDM_lin_B, compress = FALSE)
-#' p_vector <- c('B'=1, 'v'=1, 'v_lMTRUE'=1, 't0'=0.1, 'B.w'=1, 'B.d_ei'=1)
-#'
-#' # Visualize trend
-#' plot_trend(p_vector, emc=emc,
-#'            par_name='B', subject='as1t',
-#'            filter=function(d) d$lR=='right', main='Threshold for right')
-plot_trend <- function(input_data, emc, par_name, subject=1,
-                       filter=NULL, on_x_axis='trials',
-                       pp_shaded=TRUE,
+plot_trend <- function(input_data, emc, par_name,
+                       true_trajectories = NULL,
+                       subject           = NULL,
+                       filter            = NULL,
+                       on_x_axis         = 'trials',
+                       pp_shaded         = TRUE,
+                       group_average     = FALSE,
+                       layout            = NULL,
                        ...) {
 
-  if(!is.list(input_data)) {
-    # user supplied p_vector
-    dadm <- emc[[1]]$data[[subject]]
-  } else {
-    dadm <- do.call(rbind, emc[[1]]$data)
-  }
-  row_filter <- dadm$subjects==subject
-  if(!is.null(filter)) {
-    if(is.function(filter)) {
-      row_filter <- row_filter & filter(dadm)
-    } else {
-      stop("filter must be a function that takes a data frame and returns a logical vector")
-    }
-  }
-  if(!is.list(input_data)) {
-    updated <- get_pars_matrix(p_vector=input_data,
-                               dadm=dadm,
-                               model=emc[[1]]$model())
-    trend <- updated[row_filter, par_name]
-    credible_interval <- NULL
-    ylim <- range(trend)
-    x <- dadm[row_filter, on_x_axis]
-    trend <- trend[order(x)]
-    x <- x[order(x)]
-  } else {
-    # user supplied posterior predictives
-    updated <- lapply(seq_along(input_data), function(i) data.frame(input_data[[i]][row_filter,par_name,drop=FALSE], x=dadm[row_filter,on_x_axis]))
-    credible_interval <- aggregate(.~x, do.call(rbind, updated), quantile, c(0.025, .5, .9))
-
-    ## order
-    credible_interval <- credible_interval[order(credible_interval[[1]]),]
-    trend <- credible_interval[[2]][,2]  # median
-    x <- credible_interval[[1]]
-    if(pp_shaded) {
-      ylim <- range(credible_interval[[2]])
-    } else {
-      ylim <- range(sapply(updated, function(x) range(x[,par_name])))
-    }
-  }
-
-  # parse dots for plotting arguments
+  all_subjects <- names(emc[[1]]$data)
   dots <- list(...)
-  if(!'xlab' %in% names(dots)) dots$xlab=on_x_axis
-  if(!'ylim' %in% names(dots)) dots$ylim=ylim
 
-  full_args <- c(list(x=x,
-                      y=trend,
-                      type='l', ylab=par_name), dots)
-  do.call(plot, full_args)
+  # --- Subject validation ---
+  if (!is.null(subject) && !group_average) {
+    if (!subject %in% all_subjects)
+      stop(sprintf("Subject '%s' not found. Available: %s",
+                   subject, paste(all_subjects, collapse = ", ")))
+    subjects_to_plot <- subject
+    multi <- FALSE
+  } else {
+    subjects_to_plot <- all_subjects
+    multi <- !group_average
+  }
 
-  if(!is.null(credible_interval)) {
-    if(pp_shaded) {
-      polygon(x=c(x, rev(x)),
-              y=c(credible_interval[[2]][,1], rev(credible_interval[[2]][,3])), col=adjustcolor(3, alpha.f = .3), border=adjustcolor(1, alpha.f=.4))
+  # --- Prepare posterior predictives if input_data is a list ---
+  # Also merge dadm columns (e.g. lR) needed for filtering
+  if (is.list(input_data)) {
+    # validate existence of trialwise pars
+    if('trialwise_parameters' %in% names(attributes(input_data))) {
+      # full pp is provided
+      input_data_pp <- lapply(attr(input_data, 'trialwise_parameters'), data.frame)
     } else {
-      for(i in updated) lines(i$x, i[,par_name], lwd=.2)
+      # user extracted trialwise parameters
+      input_data_pp <- lapply(input_data, data.frame)
     }
+
+    dadm_all       <- do.call(rbind, emc[[1]]$data)
+
+    # add postn number and dadm columns for aggregation
+    for (post_n in seq_along(input_data_pp)) {
+      input_data_pp[[post_n]] <- cbind(
+        postn=post_n,
+        input_data_pp[[post_n]],
+        dadm_all[, setdiff(names(dadm_all), names(input_data_pp[[post_n]])), drop = FALSE]
+      )
+    }
+    if (!is.null(true_trajectories)) {
+      true_trajectories <- data.frame(true_trajectories)
+      true_trajectories <- cbind(
+        true_trajectories,
+        dadm_all[, setdiff(names(dadm_all), names(true_trajectories)), drop = FALSE]
+      )
+    }
+  } else {
+    input_data_pp <- NULL
+  }
+
+  # --- Aggregate posterior predictives (per-subject path only) ---
+  if (!is.null(input_data_pp) && !group_average) {
+    combined <- do.call(rbind, input_data_pp)
+    if (!is.null(filter)) combined <- combined[filter(combined), ]
+    agg <- aggregate(
+      stats::as.formula(paste0(par_name, " ~ ", on_x_axis, " * subjects")),
+      data = combined, stats::quantile, c(0.025, 0.5, 0.975)
+    )
+    agg <- agg[order(agg$subjects, agg[[on_x_axis]]), ]
+  } else {
+    agg <- NULL
+  }
+
+  # --- Group average path ---
+  if (group_average) {
+    if (!is.null(input_data_pp)) {
+      # posterior predictives are proviced. First filter
+      combined <- do.call(rbind, input_data_pp)
+      if (!is.null(filter)) combined <- combined[filter(combined), ]
+
+      # aggregate across subjects first, then get 95% CI and median
+      agg_grp <- aggregate(
+        stats::as.formula(paste0(par_name, " ~ ", on_x_axis, " * postn")), combined, mean)
+      agg_ci <- aggregate(
+        stats::as.formula(paste0(par_name, " ~ ", on_x_axis)), agg_grp, stats::quantile, c(.025, .5, .975)
+      )
+      agg_ci <- agg_ci[order(agg_ci[[on_x_axis]]),]
+      ci_mat  <- agg_ci[[par_name]]
+      colnames(agg_ci) <- c(on_x_axis, par_name)
+      xs      <- agg_ci[[on_x_axis]]
+      ci      <- agg_ci[[par_name]]
+      trend   <- ci[, 2]
+      ylim    <- range(ci)
+    } else {
+      # input_data is a p_vector, should be a p_matrix in this case
+      # check if p_vector has the same number of rows as there's subjects in the dadm
+      n_subj <- length(emc[[1]]$data)
+      if(!isTRUE(nrow(input_data)==n_subj)) stop("For group aggregates, provide either posterior predictives or a parameter matrix with the same number of rows as subjects")
+
+      updated <- do.call(rbind, lapply(1:nrow(input_data), function(i) get_pars_matrix_oo(input_data[i,,drop=FALSE], emc[[1]]$data[[i]], model = emc[[1]]$model())))
+
+      # get dadm
+      dadm_all <- do.call(rbind, emc[[1]]$data)
+      if (!is.null(filter)) {
+        idx <- filter(dadm_all)
+        dadm_all <- dadm_all[idx, ]
+        updated <- updated[idx, ]
+      }
+
+      grp_df   <- data.frame(x = dadm_all[[on_x_axis]], trend = updated[, par_name])
+      grp_agg  <- aggregate(trend ~ x, grp_df, mean)  # across-subject mean
+      grp_agg  <- grp_agg[order(grp_agg$x), ]
+      xs       <- grp_agg$x
+      trend    <- grp_agg$trend
+      ci       <- NULL
+      ylim     <- range(trend)
+      agg_ci <- NULL
+    }
+
+    if (!is.null(true_trajectories)) {
+      true_filt <- if (!is.null(filter)) true_trajectories[filter(true_trajectories), ] else true_trajectories
+      true_grp  <- aggregate(stats::as.formula(paste0(par_name, " ~ ", on_x_axis)), true_filt, mean)
+      true_grp <- true_grp[order(true_grp[[on_x_axis]]), ]
+      ylim     <- range(ylim, true_grp[[par_name]])
+    }
+
+    if (!'xlab' %in% names(dots)) dots$xlab <- on_x_axis
+    if (!'ylab' %in% names(dots)) dots$ylab <- par_name
+    if (!'ylim' %in% names(dots)) dots$ylim <- ylim
+    if (!'main' %in% names(dots)) dots$main <- "Group average"
+
+    do.call(plot, c(list(x = xs, y = trend, type = 'l', col = ifelse(is.null(ci), 1, 'darkgreen'), lwd = 1.5), dots))
+
+    if (!is.null(ci)) {
+      if (pp_shaded) {
+        polygon(c(xs, rev(xs)), c(ci[, 1], rev(ci[, 3])),
+                col = adjustcolor(3, alpha.f = 0.3), border = NA)
+      } else {
+        for (draw in input_data_pp) {
+          draw_filt <- if (!is.null(filter)) draw[filter(draw), ] else draw
+          draw_agg  <- aggregate(
+            stats::as.formula(paste0(par_name, " ~ ", on_x_axis)),
+            data = draw_filt, FUN = mean
+          )
+          draw_agg <- draw_agg[order(draw_agg[[on_x_axis]]), ]
+          lines(draw_agg[[on_x_axis]], draw_agg[[par_name]],
+                lwd = 0.2, col = adjustcolor(3, alpha.f = 0.5))
+        }
+      }
+    }
+
+    if (!is.null(true_trajectories)) {
+      lines(true_grp[[on_x_axis]], true_grp[[par_name]],
+            col = 'black', lwd = 2, lty = 2)
+      legend("topright", legend = c("95% CI", "True"),
+             col = c(NA, "black"),
+             lty = c(NA, 2), lwd = c(NA, 2),
+             pch = c(22, NA),
+             pt.bg = c(adjustcolor(3, alpha.f = 0.3), NA),
+             pt.cex = 2, bty = "n")
+      }
+
+    return(invisible(agg_ci))
+  }
+
+  # --- Layout for multi-subject plot ---
+  if (multi) {
+    if (!isFALSE(dots$set.par)) {
+      oldpar <- par(no.readonly = TRUE)
+      on.exit(par(oldpar))
+      if (!is.null(layout)) {
+        par(mfrow = layout)
+      } else {
+        n     <- length(subjects_to_plot)
+        ncols <- min(ceiling(sqrt(n)), 3L)
+        nrows <- min(ceiling(n / ncols), 3L)
+        par(mfrow = c(nrows, ncols))
+      }
+    }
+    dots$set.par <- NULL
+  }
+
+  # --- Per-subject plot loop ---
+  for (subj in subjects_to_plot) {
+    do.call(.plot_trend_single,
+            c(list(input_data        = input_data,
+                   input_data_pp     = input_data_pp,
+                   agg               = agg,
+                   true_trajectories = true_trajectories,
+                   emc               = emc,
+                   par_name          = par_name,
+                   subject           = subj,
+                   filter            = filter,
+                   on_x_axis         = on_x_axis,
+                   pp_shaded         = pp_shaded),
+              dots))
+  }
+
+  invisible(agg)
+}
+
+
+# Internal: plots trend for a single subject
+.plot_trend_single <- function(input_data, input_data_pp = NULL, agg = NULL,
+                               true_trajectories = NULL,
+                               emc, par_name, subject,
+                               filter    = NULL,
+                               on_x_axis = 'trials',
+                               pp_shaded = TRUE,
+                               ...) {
+
+  dadm <- emc[[1]]$data[[subject]]
+
+  row_filter <- rep(TRUE, nrow(dadm))
+  if (!is.null(filter)) {
+    if (is.function(filter)) {
+      row_filter <- filter(dadm)
+    } else {
+      stop("filter must be a function returning a logical vector")
+    }
+  }
+
+  if (is.null(input_data_pp)) {
+    # --- p_vector path ---
+    updated <- get_pars_matrix_oo(p_vector = input_data,
+                                  dadm     = dadm,
+                                  model    = emc[[1]]$model())
+    trend  <- updated[row_filter, par_name]
+    x      <- dadm[row_filter, on_x_axis]
+    ord    <- order(x)
+    trend  <- trend[ord]
+    x      <- x[ord]
+    ylim   <- range(trend)
+    ci     <- NULL
+  } else {
+    # --- posterior predictives path ---
+    agg_sub <- agg[agg$subjects == subject, ]
+    agg_sub <- agg_sub[order(agg_sub[[on_x_axis]]), ]
+    ci      <- agg_sub[[par_name]]
+    x       <- agg_sub[[on_x_axis]]
+    trend   <- ci[, 2]
+    ylim    <- if (pp_shaded) range(ci) else
+      range(sapply(input_data_pp, function(d) {
+        d_sub <- d[d$subjects == subject, ]
+        if (!is.null(filter)) d_sub <- d_sub[filter(d_sub), ]
+        range(d_sub[[par_name]])
+      }))
+  }
+
+  # Expand ylim to include true trajectory if supplied
+  if (!is.null(true_trajectories)) {
+    true_sub <- true_trajectories[true_trajectories$subjects == subject, ]
+    if (!is.null(filter)) true_sub <- true_sub[filter(true_sub), ]
+    ylim <- range(ylim, true_sub[[par_name]])
+  }
+
+  dots <- list(...)
+  if (!'xlab' %in% names(dots)) dots$xlab <- on_x_axis
+  if (!'ylab' %in% names(dots)) dots$ylab <- par_name
+  if (!'ylim' %in% names(dots)) dots$ylim <- ylim
+  if (!'main' %in% names(dots)) dots$main <- as.character(subject)
+
+  do.call(plot, c(list(x = x, y = trend, type = 'l', col = ifelse(is.null(ci), 1, 'darkgreen'), lwd = 1.5), dots))
+
+  # --- Credible interval / individual lines ---
+  if (!is.null(ci)) {
+    if (pp_shaded) {
+      polygon(c(x, rev(x)), c(ci[, 1], rev(ci[, 3])),
+              col = adjustcolor(3, alpha.f = 0.3), border = NA)
+    } else {
+      for (draw in input_data_pp) {
+        draw_sub <- draw[draw$subjects == subject, ]
+        draw_sub <- draw_sub[order(draw_sub[[on_x_axis]]), ]
+        if (!is.null(filter)) draw_sub <- draw_sub[filter(draw_sub), ]
+        lines(draw_sub[[on_x_axis]], draw_sub[[par_name]],
+              lwd = 0.2, col = adjustcolor(3, alpha.f = 0.5))
+      }
+    }
+  }
+
+  # --- True trajectory overlay ---
+  if (!is.null(true_trajectories)) {
+    true_sub <- true_trajectories[true_trajectories$subjects == subject, ]
+    if (!is.null(filter)) true_sub <- true_sub[filter(true_sub), ]
+    true_sub <- true_sub[order(true_sub[[on_x_axis]]), ]
+    lines(true_sub[[on_x_axis]], true_sub[[par_name]],
+          col = 'black', lwd = 2, lty = 2)
+    legend("topright", legend = c("95% CI", "True"),
+           col = c(NA, "black"),
+           lty = c(NA, 2), lwd = c(NA, 2),
+           pch = c(22, NA), pt.bg = c(adjustcolor(3, alpha.f = 0.3), NA),
+           pt.cex = 2, bty = "n")
   }
 }
+
+
 
 
 # Spectrum plotting -------------------------------------------------------
@@ -1122,5 +1176,3 @@ plot_spectrum <- function(dat, pp = NULL,
 
   invisible(result)
 }
-
-

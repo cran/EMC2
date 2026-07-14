@@ -159,8 +159,8 @@ get_prior_SEM <- function(prior = NULL, n_pars = NULL, sample = TRUE, N = 1e5, s
     }
     if(selection %in% c("regressors","std_loadings", "alpha", "mu_implied", "Sigma", "correlation", "covariance", "sigma2")){
       K <- array(0, dim = c(n_pars, n_cov, N))
-      for(i in 1:n_cov){
-        K[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$K_var, n_cov)))
+      for(i in seq_len(n_cov)){
+        K[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$K_var[i], n_pars)))
       }
       K <- constrain_lambda(K, K_mat)
       rownames(K) <- par_names
@@ -171,8 +171,8 @@ get_prior_SEM <- function(prior = NULL, n_pars = NULL, sample = TRUE, N = 1e5, s
     }
     if(selection %in% c("factor_regressors","std_loadings", "alpha", "mu_implied", "Sigma", "correlation", "covariance", "sigma2")){
       G <- array(0, dim = c(n_factors, n_cov, N))
-      for(i in 1:n_cov){
-        G[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$G_var, n_cov)))
+      for(i in seq_len(n_cov)){
+        G[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$G_var[i], n_factors)))
       }
       G <- constrain_lambda(G, G_mat)
 
@@ -184,7 +184,7 @@ get_prior_SEM <- function(prior = NULL, n_pars = NULL, sample = TRUE, N = 1e5, s
     }
     if(selection %in% c("structural_regressors", "std_loadings", "alpha", "mu_implied", "Sigma", "correlation", "covariance", "sigma2")){
       B <- array(0, dim = c(n_factors, n_factors, N))
-      for(i in 1:n_factors){
+      for(i in seq_len(n_factors)){
         B[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$B_var[i], n_factors)))
       }
       B <- constrain_lambda(B, B_mat)
@@ -196,7 +196,7 @@ get_prior_SEM <- function(prior = NULL, n_pars = NULL, sample = TRUE, N = 1e5, s
     }
     if(selection %in% c("loadings", "std_loadings", "alpha", "mu_implied", "Sigma", "correlation", "covariance", "sigma2")){
       lambda <- array(0, dim = c(n_pars, n_factors, N))
-      for(i in 1:n_factors){
+      for(i in seq_len(n_factors)){
         lambda[,i,] <- t(mvtnorm::rmvnorm(N, sigma = diag(prior$lambda_var[i], n_pars)))
       }
       lambda <- constrain_lambda(lambda, Lambda_mat)
@@ -309,6 +309,11 @@ gibbs_step_SEM <- function(sampler, alpha){
   last          <- last_sample_SEM(sampler$samples)
   sem_settings  <- sampler$sem_settings
   prior         <- sampler$prior
+
+  if (length(dim(alpha)) != 2L) {
+    alpha <- matrix(alpha, nrow = sum(!sampler$nuisance), ncol = sampler$n_subjects)
+    rownames(alpha) <- sampler$par_names[!sampler$nuisance]
+  }
 
   y             <- t(alpha)                     # subjects x variables
   n_subjects    <- sampler$n_subjects
@@ -914,6 +919,12 @@ bridge_group_and_prior_and_jac_SEM <- function(proposals_group,
 #' @param g_specs A list defining covariate effects on factors.
 #'   List names are factor names, elements are character vectors of covariate names.
 #'   Example: `list(Factor1 = "cov1", Factor2 = c("cov1", "cov2"))`
+#' @param factor_groups Optional factor-correlation block specification.
+#'   Can be either (1) a character vector of factor names defining one correlated block, or
+#'   (2) a list of character vectors where each element is one correlated block.
+#'   Factors not listed are treated as independent singleton blocks.
+#'   Example: `c("Speed", "Caution", "Ability")` or
+#'   `list(c("Speed", "Caution"), c("Ability", "Strategy"))`.
 #' @param fixed_value Numeric. The value used for fixed paths in the matrices that
 #'   are not set to 1 for identifiability or `Inf` for estimation. Default is 0.
 #'
@@ -924,6 +935,7 @@ bridge_group_and_prior_and_jac_SEM <- function(proposals_group,
 #'   - `G_mat`: The matrix of covariate effects on factors.
 #'   - `par_names`: The subject-level parameter names derived from `sampled_pars(design)`.
 #'   - `factor_names`: The provided SEM factor names.
+#'   - `factor_groups`: Integer vector indicating factor-correlation blocks.
 #'   - `covariates`: A data frame with one row per unique subject and columns for each covariate,
 #'     containing the unique subject-level values. Column names are the covariate names.
 #'
@@ -985,6 +997,7 @@ make_sem_structure <- function(data = NULL,
                                  b_specs = NULL,
                                  k_specs = NULL,
                                  g_specs = NULL,
+                                 factor_groups = NULL,
                                  fixed_value = 0) {
 
   subjects_col_internal <- "subjects"
@@ -992,9 +1005,67 @@ make_sem_structure <- function(data = NULL,
   par_names <- names(sampled_pars(design))
 
   if (!is.null(covariate_cols) && !is.character(covariate_cols)) stop("'covariate_cols' must be a character vector or NULL.")
-  factor_names <- names(lambda_specs)
+  if (!is.null(lambda_specs) && !is.list(lambda_specs)) stop("'lambda_specs' must be a list.")
+  factor_names <- if (is.null(lambda_specs)) character(0) else names(lambda_specs)
+  if (!is.null(lambda_specs) && (is.null(factor_names) || any(factor_names == ""))) {
+    stop("'lambda_specs' must be a named list of factor definitions.")
+  }
+  if (anyDuplicated(factor_names)) stop("Factor names in 'lambda_specs' must be unique.")
   n_pars <- length(par_names)
   n_factors <- length(factor_names)
+
+  factor_groups_out <- if (n_factors > 0) seq_len(n_factors) else integer(0)
+  names(factor_groups_out) <- factor_names
+  if (!is.null(factor_groups)) {
+    if (n_factors == 0) {
+      stop("'factor_groups' supplied, but no factors were defined in 'lambda_specs'.")
+    }
+    groups_spec <- if (is.character(factor_groups)) {
+      list(factor_groups)
+    } else if (is.list(factor_groups)) {
+      factor_groups
+    } else {
+      stop("'factor_groups' must be a character vector, a list of character vectors, or NULL.")
+    }
+    if (length(groups_spec) == 0) stop("'factor_groups' must not be empty.")
+
+    parsed_groups <- rep(NA_integer_, n_factors)
+    names(parsed_groups) <- factor_names
+    seen_factors <- character(0)
+    next_group_id <- 1L
+    for (group_vec in groups_spec) {
+      if (!is.character(group_vec) || length(group_vec) == 0) {
+        stop("Each element in 'factor_groups' must be a non-empty character vector.")
+      }
+      if (any(is.na(group_vec)) || any(group_vec == "")) {
+        stop("'factor_groups' contains missing or empty factor names.")
+      }
+      if (anyDuplicated(group_vec)) {
+        stop("A factor was listed more than once within a 'factor_groups' block.")
+      }
+      unknown_factors <- setdiff(group_vec, factor_names)
+      if (length(unknown_factors) > 0) {
+        stop("Unknown factor name(s) in 'factor_groups': ",
+             paste(unknown_factors, collapse = ", "), ".")
+      }
+      duplicate_across_blocks <- intersect(group_vec, seen_factors)
+      if (length(duplicate_across_blocks) > 0) {
+        stop("Factor name(s) repeated across 'factor_groups' blocks: ",
+             paste(duplicate_across_blocks, collapse = ", "), ".")
+      }
+      parsed_groups[group_vec] <- next_group_id
+      seen_factors <- c(seen_factors, group_vec)
+      next_group_id <- next_group_id + 1L
+    }
+    remaining <- which(is.na(parsed_groups))
+    if (length(remaining) > 0) {
+      for (idx in remaining) {
+        parsed_groups[idx] <- next_group_id
+        next_group_id <- next_group_id + 1L
+      }
+    }
+    factor_groups_out <- parsed_groups
+  }
 
   processed_covariate_names <- character(0)
   processed_covariates_df <- NULL
@@ -1056,7 +1127,6 @@ make_sem_structure <- function(data = NULL,
   }
 
   if (!is.null(lambda_specs)) {
-    if (!is.list(lambda_specs)) stop("'lambda_specs' must be a list.")
     for (f_name in names(lambda_specs)) {
       if (!f_name %in% factor_names) stop(paste0("Factor '", f_name, "' in lambda_specs not in SEM factor_names."))
       p_names_for_f <- lambda_specs[[f_name]]
@@ -1133,6 +1203,7 @@ make_sem_structure <- function(data = NULL,
     G_mat = G_mat,
     par_names = par_names,
     factor_names = factor_names,
+    factor_groups = factor_groups_out,
     covariates = processed_covariates_df
   ))
 }

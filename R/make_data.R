@@ -217,46 +217,46 @@ make_data <- function(parameters,design = NULL,n_trials=NULL,data=NULL,expand=1,
     simulate_unconditional_on_data <- !isTRUE(dots_local$conditional_on_data)
   }
   return_trialwise_parameters <- isTRUE(dots_local$return_trialwise_parameters)
+  if('kernel_output_codes' %in% names(dots_local)) {
+    kernel_output_codes <- dots_local$kernel_output_codes
+  } else {
+    kernel_output_codes <- c(1L)
+  }
 
   ## For both conditional and unconditional simulations...
   pars <- t(apply(parameters, 1, do_pre_transform, model()$pre_transform))
   pars <- add_constants(pars,design$constants)
   if(simulate_unconditional_on_data) {
     res <- make_data_unconditional(data=data, pars=pars, design=design, model=model,
-                                   return_trialwise_parameters)
+                                   return_trialwise_parameters, kernel_output_codes, optionals=optionals)
+
     data <- res$data
     trialwise_parameters <- res$trialwise_parameters
-  } else{
+  } else {
     data <- design_model(
       add_accumulators(data,design$matchfun,simulate=TRUE,type=model()$type,Fcovariates=design$Fcovariates),
       design,model,add_acc=FALSE,compress=FALSE,verbose=FALSE,
       rt_check=FALSE)
-    pars <- map_p(pars,data, model(), return_trialwise_parameters)
-
-    if(!is.null(model()$trend)){
-      phases <- vapply(model()$trend, function(x) x$phase, character(1))
-      if (any(phases == "pretransform")){
-        # apply only pretransform trends and remove their trend parameters
-        pars <- prep_trend_phase(data, model()$trend, pars, "pretransform",
-                                 return_trialwise_parameters)
+    pars <- get_pars_oo(parameters, data, model())
+    if(return_trialwise_parameters) {
+      if(!is.null(model()$trend)) {
+        trialwise_parameters <- cbind(subjects=data$subjects, trials=data$trials,
+          pars,
+          get_pars_oo(parameters, data, model(),
+                      return_kernel_matrix = TRUE,
+                      kernel_output_codes = kernel_output_codes)
+        )
+      } else {
+        trialwise_parameters <- pars
       }
     }
-    pars <- do_transform(pars, model()$transform)
-    if(!is.null(model()$trend)){
-      phases <- vapply(model()$trend, function(x) x$phase, character(1))
-      if (any(phases == "posttransform")){
-        # apply only posttransform trends and remove their trend parameters
-        pars <- prep_trend_phase(data, model()$trend, pars, "posttransform",
-                                 return_trialwise_parameters)
-      }
-    }
-    if(return_trialwise_parameters) trialwise_parameters <- cbind(pars, attr(pars, "trialwise_parameters"))
 
     pars <- model()$Ttransform(pars, data)
-    if (is.null(optionals$nobound))
-      pars <- add_bound(pars, model()$bound, data$lR) else
+    if (!is.null(optionals$nobound)) {
       attr(pars,"ok") <- rep(TRUE,nrow(pars))
-
+    } else {
+      pars <- fix_bound(pars, model()$bound, data$lR,fix=!is.null(optionals$shrink2bound))
+    }
     pars_ok <- attr(pars, 'ok')
     if(mean(!pars_ok) > .1){
       warning("More than 10% of parameter values fall out of model bounds, see <model_name>$bounds()")
@@ -279,6 +279,11 @@ make_data <- function(parameters,design = NULL,n_trials=NULL,data=NULL,expand=1,
     if(!is.null(data$lR)) data <- data[data$lR == levels(data$lR)[1],]
     data <- data[,!(names(data) %in% dropNames)]
     for (i in dimnames(Rrt)[[2]]) data[[i]] <- Rrt[,i]
+    if (is_choice_only_model_type(model()) &&
+        "rt" %in% names(data) &&
+        all(is.na(data$rt))) {
+      data$rt <- NULL
+    }
   }
   attr(data,"p_vector") <- parameters;
   if(!is.null(post_functions)){
@@ -363,4 +368,3 @@ make_random_effects <- function(design, group_means, n_subj = NULL, variance_pro
   rownames(random_effects) <- subnames
   return(random_effects)
 }
-

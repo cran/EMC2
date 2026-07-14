@@ -132,15 +132,7 @@ trend_delta <- make_trend(
 trend_delta2 <- make_trend(
   par_names = "v",
   cov_names = "trial_nr",
-  kernels = "delta2kernel"
-)
-
-## -----------------------------------------------------------------------------
-trend_exp_incr <- make_trend(
-  par_names = "v",
-  cov_names = "trial_nr",
-  kernels = "exp_incr",
-  bases =  "exp_lin"
+  kernels = "delta2lr"
 )
 
 ## -----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 Package: EMC2
 Title: Bayesian Hierarchical Analysis of Cognitive Models of Choice
-Version: 3.4.1
+Version: 3.5.0
 Authors@R: 
     c(person("Niek", "Stevenson", email = "niek.stevenson@gmail.com", 
            role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3206-7544")),
@@ -50,7 +50,7 @@ Depends: R (>= 3.5.0)
 LazyData: true
 Config/testthat/parallel: true
 NeedsCompilation: yes
-Packaged: 2026-01-12 09:44:01 UTC; nstevenson
+Packaged: 2026-07-14 12:16:20 UTC; nstevenson
 Author: Niek Stevenson [aut, cre] (ORCID:
     <https://orcid.org/0000-0003-3206-7544>),
   Michelle Donzallaz [aut],
@@ -69,4 +69,4 @@ Author: Niek Stevenson [aut, cre] (ORCID:
   Jason H. Stover [ctb]
 Maintainer: Niek Stevenson <niek.stevenson@gmail.com>
 Repository: CRAN
-Date/Publication: 2026-01-12 10:10:02 UTC
+Date/Publication: 2026-07-14 12:40:02 UTC

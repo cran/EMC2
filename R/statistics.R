@@ -1,14 +1,26 @@
-#' Information Criteria and Marginal Likelihoods
+#' Information Criteria and Log Marginal Likelihood
 #'
-#' Returns the BPIC/DIC or marginal deviance (-2*marginal likelihood) for a list of samples objects.
+#' Returns the BPIC/DIC and optionally marginal deviance (-2 x log marginal likelihood) for a list of samples objects.
+#'
+#' Computes DIC and BPIC using a deviance based on either (a) the data likelihood
+#' only ("conditional", default) or (b) the joint likelihood including the
+#' hierarchical prior over subject-level parameters ("joint", non-standard, experimental).
+#'
+#' If `use_best_fit = TRUE` (default), the deviance anchor is taken as the better
+#' of the deviance at the posterior mean parameters and the best-fitting posterior
+#' draw. If `FALSE`, the deviance at the posterior mean parameters is used
+#' (standard DIC/BPIC).
 #'
 #' @param sList List of samples objects
 #' @param stage A string. Specifies which stage the samples are to be taken from `"preburn"`, `"burn"`, `"adapt"`, or `"sample"`
 #' @param filter An integer or vector. If it's an integer, iterations up until the value set by `filter` will be excluded.
 #' If a vector is supplied, only the iterations in the vector will be considered.
-#' @param use_best_fit Boolean, defaults to `TRUE`, uses the minimal or mean likelihood (whichever is better) in the
-#' calculation, otherwise always uses the mean likelihood.
-#' @param BayesFactor Boolean, defaults to `TRUE`. Include marginal likelihoods as estimated using WARP-III bridge sampling.
+#' @param use_best_fit Boolean; defaults to `TRUE` If `TRUE`, uses the smaller of (i) the deviance at the posterior mean parameters and (ii) the lowest deviance across posterior draws (i.e., the best-fitting draw). If `FALSE`, uses only the deviance at the posterior mean parameters (i.e., standard DIC/BPIC).
+#' @param type Character. `"conditional"` (default) uses only the data likelihood
+#' for DIC/BPIC. `"joint"` uses the joint likelihood including the hierarchical
+#' prior; this option is experimental.
+#' @param BayesFactor Boolean, defaults to `TRUE`. Include marginal deviance
+#' (`-2 * log` marginal likelihood) as estimated using WARP-III bridge sampling.
 #' Usually takes a minute per model added to calculate
 #' @param cores_for_props Integer, how many cores to use for the Bayes factor calculation, here 4 is the default for the 4 different proposal densities to evaluate, only 1, 2 and 4 are sensible.
 #' @param cores_per_prop Integer, how many cores to use for the Bayes factor calculation if you have more than 4 cores available. Cores used will be cores_for_props * cores_per_prop. Best to prioritize cores_for_props being 4 or 2
@@ -45,8 +57,10 @@
 #' @export
 
 compare <- function(sList,stage="sample",filter=NULL,use_best_fit=TRUE,
+                        type = "conditional",
                         BayesFactor = TRUE, cores_for_props =4, cores_per_prop = 1,
                         print_summary=TRUE,digits=0,digits_p=3, ...) {
+  type <- match.arg(type, c("conditional","joint"))
   if(is(sList, "emc")) sList <- list(sList)
   getp <- function(IC) {
     IC <- -(IC - min(IC))/2
@@ -58,9 +72,15 @@ compare <- function(sList,stage="sample",filter=NULL,use_best_fit=TRUE,
     if (i %in% names(sflist)) sflist[[i]] <- filter[[i]]
   dots <- add_defaults(list(...), group_only = FALSE)
   ICs <- setNames(vector(mode="list",length=length(sList)),names(sList))
-  for (i in 1:length(ICs)) ICs[[i]] <- IC(sList[[i]],stage=stage,
-                                          filter=sflist[[i]],use_best_fit=use_best_fit,subject=list(...)$subject,print_summary=FALSE,
-                                          group_only = dots$group_only)
+  for (i in 1:length(ICs)) {
+    if('ICs' %in% names(attributes(sList[[i]]))) {
+      ICs[[i]] <- attr(sList[[i]], 'ICs')
+    } else {
+      ICs[[i]] <- IC(sList[[i]],stage=stage,
+                     filter=sflist[[i]],use_best_fit=use_best_fit,subject=list(...)$subject,print_summary=FALSE,
+                     group_only = dots$group_only, type = type)
+    }
+  }
   ICs <- data.frame(do.call(rbind,ICs))
   DICp <- getp(ICs$DIC)
   BPICp <- getp(ICs$BPIC)
@@ -68,9 +88,13 @@ compare <- function(sList,stage="sample",filter=NULL,use_best_fit=TRUE,
 
   if(BayesFactor){
     MLLs <- numeric(length(sList))
-    for(i in 1:length(MLLs)){
-      MLLs[i] <- run_bridge_sampling(sList[[i]], stage = stage, filter = sflist[[i]], both_splits = FALSE,
-                                     cores_for_props = cores_for_props, cores_per_prop = cores_per_prop)
+    for (i in 1:length(MLLs)) {
+      if('ICs' %in% names(attributes(sList[[i]]))) {
+        MLLs[[i]] <- attr(sList[[i]], 'MLL')
+      } else {
+        MLLs[[i]] <- run_bridge_sampling(sList[[i]], stage = stage, filter = sflist[[i]], both_splits = FALSE,
+                                         cores_for_props = cores_for_props, cores_per_prop = cores_per_prop)
+      }
     }
     MD <- -2*MLLs
     modelProbability <- getp(MD)
@@ -250,9 +274,10 @@ gelman_diag_robust <- function(mcl,autoburnin = FALSE,transform = TRUE, omit_mps
 
 IC <- function(emc,stage="sample",filter=0,use_best_fit=TRUE,
                print_summary=TRUE,digits=0,subject=NULL,
-               group_only = FALSE)
+               group_only = FALSE, type = "conditional")
   # Gets DIC, BPIC, effective parameters, mean deviance, and deviance of mean
 {
+  type <- match.arg(type, c("conditional","joint"))
   # Mean log-likelihood for each subject
   if (length(subject)!=1) {
     ll <- get_pars(emc, stage = stage, filter = filter, selection = "LL", merge_chains = TRUE)
@@ -261,7 +286,7 @@ IC <- function(emc,stage="sample",filter=0,use_best_fit=TRUE,
     ll <- get_pars(emc, stage = stage, filter = filter, selection = "LL", merge_chains = TRUE,subject=subject)
     alpha <- get_pars(emc,selection="alpha",stage=stage,filter=filter, by_subject = TRUE, merge_chains = TRUE,subject=subject)
   }
-  minDs <- -2*apply(ll[[1]][[1]], 2, min)
+  minDs <- -2*apply(ll[[1]][[1]], 2, max)
   mean_lls <- apply(ll[[1]][[1]], 2, mean)
   mean_pars <- lapply(alpha,function(x){apply(do.call(rbind,x),2,mean)})
   # log-likelihood for each subject using their mean parameter vector
@@ -276,7 +301,7 @@ IC <- function(emc,stage="sample",filter=0,use_best_fit=TRUE,
     Dmeans <- Dmeans[subject[1]]
     mean_lls <- mean_lls[subject[1]]
     minDs <- minDs[subject[1]]
-  } else{
+  } else if (type == "joint"){
     group_stats <- group_IC(emc, stage=stage,filter=filter, type = emc[[1]]$type)
     if(group_only){
       mean_lls <- group_stats$mean_ll
@@ -287,6 +312,8 @@ IC <- function(emc,stage="sample",filter=0,use_best_fit=TRUE,
       minDs <- c(minDs, group_stats$minD)
       Dmeans <- c(Dmeans, group_stats$Dmean)
     }
+  } else if (group_only) {
+    warning("group_only ignored for conditional DIC; using data likelihood only.")
   }
   if (use_best_fit) minDs <- pmin(minDs,Dmeans)
 
@@ -527,7 +554,23 @@ get_summary_stat <- function(emc, selection = "mu", fun, stat = NULL,
     if(length(fun) > 1){
       outputs <- list()
       for(j in 1:length(fun)){
-        outputs[[j]] <- do.call(fun[[j]], c(list(MCMC_samples[[i]]), fix_dots(dots, fun[[j]])))
+        out_j <- do.call(fun[[j]], c(list(MCMC_samples[[i]]), fix_dots(dots, fun[[j]])))
+        if (is.null(dim(out_j))) {
+          n_par <- if (inherits(MCMC_samples[[i]], "mcmc.list")) {
+            ncol(MCMC_samples[[i]][[1]])
+          } else if (!is.null(dim(MCMC_samples[[i]]))) {
+            dim(MCMC_samples[[i]])[1]
+          } else {
+            length(MCMC_samples[[i]])
+          }
+          if (length(out_j) == n_par) {
+            out_j <- matrix(out_j, ncol = 1L)
+            rownames(out_j) <- names(out_j)
+          } else {
+            out_j <- matrix(out_j, nrow = 1L)
+          }
+        }
+        outputs[[j]] <- out_j
       }
       out[[i]] <- do.call(cbind, outputs)
       if(!is.null(stat_name)){
@@ -630,3 +673,56 @@ model_averaging <- function(IC_for, IC_against) {
   ))
 }
 
+
+#' Add information criteria to emc object
+#'
+#' Adds DIC, BPIC, and optionally MLL values as attributes to an emc object. Can be useful to offload
+#' computational burden.
+#'
+#' @param emc List of samples objects
+#' @param stage A string. Specifies which stage the samples are to be taken from `"preburn"`, `"burn"`, `"adapt"`, or `"sample"`
+#' @param filter An integer or vector. If it's an integer, iterations up until the value set by `filter` will be excluded.
+#' If a vector is supplied, only the iterations in the vector will be considered.
+#' @param use_best_fit Boolean, defaults to `TRUE`, uses the minimal or mean likelihood (whichever is better) in the
+#' calculation, otherwise always uses the mean likelihood.
+#' @param BayesFactor Boolean, defaults to `TRUE`. Include marginal likelihoods as estimated using WARP-III bridge sampling.
+#' Usually takes a minute per model added to calculate
+#' @param cores_for_props Integer, how many cores to use for the Bayes factor calculation, here 4 is the default for the 4 different proposal densities to evaluate, only 1, 2 and 4 are sensible.
+#' @param cores_per_prop Integer, how many cores to use for the Bayes factor calculation if you have more than 4 cores available. Cores used will be cores_for_props * cores_per_prop. Best to prioritize cores_for_props being 4 or 2
+#' @param ... Additional, optional arguments
+#' @return An \code{emc} object with new attributes 'ICs' and 'MLL'
+#'
+#' @examples \donttest{
+#' samples_with_ICs <- add_ICs_MLL(samples_LNR, cores_for_props = 1)
+#' attr(samples_with_ICs, 'MLL')
+#' attr(samples_with_ICs, 'ICs')
+#'
+#' # Pre-computed MLLs and ICs are extracted when using compare():
+#' compare(sList=list(samples_with_ICs, samples_LNR), cores_for_props=1)
+#' # Returns the same MD (barring noise), BPIC, DIC for both emc objects, as expected -
+#' # but the first is extracted, the second computed in compare().
+#' }
+#' @export
+add_ICs_MLL <- function(emc, stage='sample', filter=NULL, use_best_fit=TRUE, BayesFactor=TRUE, cores_for_props=4, cores_per_prop=1, ...) {
+  if (is.numeric(filter)) filter <- filter[1] else filter <- 0
+  dots <- add_defaults(list(...), group_only = FALSE)
+  attr(emc, 'ICs') <- IC(emc,
+                         stage=stage,
+                         filter=filter,
+                         use_best_fit=use_best_fit,
+                         group_only = dots$group_only,
+                         print_summary=FALSE)
+  if(BayesFactor) {
+    MLL <- tryCatch({
+      # Put in try-catch -- this rarely (but possibly) produces an error
+      run_bridge_sampling(emc, stage = stage, filter = filter, both_splits = FALSE,
+                          cores_for_props = cores_for_props, cores_per_prop = cores_per_prop)
+    }, error = function(e) {
+      # instead of a hard error and stop, continue gracefully
+      cat("An error occurred while running bridge sampling:", conditionMessage(e), "\n")
+      NA
+    })
+    if(!is.na(MLL)) attr(emc, 'MLL') <- MLL
+  }
+  return(emc)
+}

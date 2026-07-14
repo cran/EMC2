@@ -11,8 +11,7 @@ n_trials <- 10
 
 covariate1 <- rnorm(n_trials*2)
 covariate2 <- rnorm(n_trials*2)
-# Ensure that NAs are handled correctly in trend
-covariate2[1:5] <- NA
+covariate2[1:5] <- 0
 
 trend <- make_trend(par_names = "m",
                     cov_names = list(c("covariate1", "covariate2")),
@@ -57,7 +56,7 @@ test_that("trend_shared", {
 })
 
 trend_premap <- make_trend(
-  par_names = c("m", "lMd"),
+  par_names = c("m", "m_lMd"),
   cov_names = list("covariate1", "covariate2"),
   kernels = c("exp_incr", "poly2"),
   phase = "premap"
@@ -66,7 +65,7 @@ trend_premap <- make_trend(
 design_premap <- design(
   data = dat,
   trend = trend_premap,
-  formula = list(m ~ lM, s ~ 1, t0 ~ 1, lMd.d1 ~ lR),
+  formula = list(m ~ lM, s ~ 1, t0 ~ 1, m_lMd.d1 ~ lR),
   contrasts = list(lM = ADmat),
   matchfun = matchfun,
   model = LNR
@@ -128,7 +127,7 @@ trend_bases <- make_trend(
   par_names = c("m", "s"),
   cov_names = list("covariate1", "covariate2"),
   kernels = c("exp_incr", "exp_decr"),
-  bases = c("exp_lin", "lin")
+  bases = c("centered", "lin")
 )
 
 design_bases <- design(
@@ -306,15 +305,13 @@ trend_mult <- make_trend(
   cov_names = list("covariate1", c("covariate1", "covariate2")),
   par_input = list(NULL, "t0"),
   kernels = c("exp_incr", "delta"),
-  phase = "pretransform",
-#  at = "lR",
-  ffill_na = FALSE
+  phase = "pretransform"
 )
 
 design_mult <- design(
   factors = list(subjects = 1, S = 1:2),
   Rlevels = 1:2,
-  covariates = c("trial2", "trial3"),
+  covariates = c("covariate1", "covariate2"),
   matchfun = matchfun,
   trend = trend_mult,
   formula = list(m ~ lM, s ~ 1, t0 ~ 1),
@@ -330,8 +327,20 @@ test_that("trend_multiple", {
 
 
 
-# Test handling of NA -----------------------------------------------------
-trend <- make_trend(par_names = "m", cov_names = list(c("covariate1", "covariate2")), kernels = "exp_incr", ffill_na=FALSE)
+
+# covariate maps
+trend <- make_trend(par_names = "m", cov_names = list(c("covariate1", "covariate2")),
+                    kernels = "delta",
+                    maps=list('map1'=function(dadm, covs) {
+                      d <- matrix(rnorm(nrow(dadm)*2), ncol=2)
+                      colnames(d) <- covs
+                      d
+                    },
+                    'map2'=function(dadm, covs) {
+                      d <- matrix(rnorm(nrow(dadm)*2), ncol=2)
+                      colnames(d) <- covs
+                      d
+                    }))
 design_base <- design(factors = list(subjects = 1, S = 1:2),
                       Rlevels = 1:2,
                       covariates = c('covariate1', 'covariate2'),
@@ -340,94 +349,88 @@ design_base <- design(factors = list(subjects = 1, S = 1:2),
                       formula = list(m ~ lM, s ~ 1, t0 ~ 1),
                       contrasts = list(lM = ADmat),
                       model = LNR)
-##mapped_pars(design_base)
+covariate1 <- rnorm(n_trials*2)
+covariate2 <- rnorm(n_trials*2)
+
 p_vector <- sampled_pars(design_base, doMap = FALSE)
 p_vector[1:6] <- c(-1, 1.5, log(1), log(.2), log(.2), log(.2))
 
-covariate1 <- rnorm(n_trials*2)
-covariate2 <- rnorm(n_trials*2)
-# Ensure that NAs are handled correctly in trend
-covariate2[c(1:5, 8)] <- NA
+dat <- make_data(p_vector, design_base, n_trials = n_trials, covariates = data.frame(covariate1 = covariate1, covariate2 = covariate2))
 
-dat <- make_data(p_vector, design_base, n_trials = n_trials, covariates = data.frame(covariate1 = covariate1, covariate2 = covariate2), return_trialwise_parameters=TRUE)
+LNR_covmap <- make_emc(dat, design_base, compress = FALSE, n_chains = 1, type = "single")
 
-test_that("trend_ffillnafalse", {
-  expect_snapshot(attr(dat, 'trialwise_parameters'))
-})
-
-# with ffill_na
-trend <- make_trend(par_names = "m", cov_names = list(c("covariate1", "covariate2")),
-                    kernels = "exp_incr", ffill_na=TRUE, at=NULL)
-design_base <- design(factors = list(subjects = 1, S = 1:2),
-                      Rlevels = 1:2,
-                      covariates = c('covariate1', 'covariate2'),
-                      matchfun = matchfun,
-                      trend = trend,
-                      formula = list(m ~ lM, s ~ 1, t0 ~ 1),
-                      contrasts = list(lM = ADmat),
-                      model = LNR)
-##mapped_pars(design_base)
-p_vector <- sampled_pars(design_base, doMap = FALSE)
-p_vector[1:6] <- c(-1, 1.5, log(1), log(.2), log(.2), log(.2))
-
-covariate1 <- rnorm(n_trials*2)
-covariate2 <- rnorm(n_trials*2)
-# Ensure that NAs are handled correctly in trend
-covariate2[c(2:5, 8)] <- NA
-
-dat <- make_data(p_vector, design_base, n_trials = n_trials, covariates = data.frame(covariate1 = covariate1, covariate2 = covariate2), return_trialwise_parameters=TRUE)
-test_that("trend_ffillnatrue", {
-  expect_snapshot(attr(dat, 'trialwise_parameters'))
-})
-
-
-# Delta rule - always set initial trial to q0
-trend <- make_trend(par_names = "m", cov_names = list(c("covariate1", "covariate2")),
-                    kernels = "delta", ffill_na=TRUE)
-design_base <- design(factors = list(subjects = 1, S = 1:2),
-                      Rlevels = 1:2,
-                      covariates = c('covariate1', 'covariate2'),
-                      matchfun = matchfun,
-                      trend = trend,
-                      formula = list(m ~ lM, s ~ 1, t0 ~ 1),
-                      contrasts = list(lM = ADmat),
-                      model = LNR)
-##mapped_pars(design_base)
-p_vector <- sampled_pars(design_base, doMap = FALSE)
-p_vector[1:7] <- c(-1, 1.5, log(1), log(.2), 1, .5, qnorm(.2))
-
-covariate1 <- rnorm(n_trials*2)
-covariate2 <- rnorm(n_trials*2)
-# Ensure that NAs are handled correctly in trend
-covariate2[c(1:5, 8)] <- NA
-
-dat <- make_data(p_vector, design_base, n_trials = n_trials, covariates = data.frame(covariate1 = covariate1, covariate2 = covariate2), return_trialwise_parameters=TRUE)
-test_that("trend_ffillnatrue_delta", {
-  expect_snapshot(attr(dat, 'trialwise_parameters'))
+test_that("trend_covmap", {
+  expect_snapshot(init_chains(LNR_covmap, particles = 3, cores_per_chain = 1)[[1]]$samples)
 })
 
 
 
-##
-# When working with lM it is useful to design  an "average and difference"
-# contrast matrix, which for binary responses has a simple canonical from:
-ADmat <- matrix(c(-1/2,1/2),ncol=1,dimnames=list(NULL,"d"))
-# We also define a match function for lM
-matchfun=function(d)d$S==d$lR
-trend <- make_trend(par_names = "m", cov_names = list(c("covariate1")),
-                    kernels = "delta", ffill_na=TRUE)
-design_base <- design(factors = list(subjects = 1, S = 1:2),
-                      Rlevels = 1:2,
-                      covariates = c('covariate1'),
-                      matchfun = matchfun,
-                      trend = trend,
-                      formula = list(m ~ lM, s ~ 1, t0 ~ 1),
-                      model = LNR)
-##mapped_pars(design_base)
-p_vector <- sampled_pars(design_base, doMap = FALSE)
-
-p_vector[1:7] <- c(-1, 1.5, log(1), log(.2), 1, .5, qnorm(.2))
+# # Manual test of covmaps --------------------------------------------------
+# trend <- make_trend(par_names = "m", cov_names = list(c("covariate1", "covariate2")),
+#                     kernels = "delta", ffill_na=TRUE,
+#                     maps=list('map1'=function(dadm, covs) {
+#                       d <- matrix(1, nrow=nrow(dadm), ncol=2)
+#                       colnames(d) <- covs
+#                       d
+#                     },
+#                     'map2'=function(dadm, covs) {
+#                       d <- matrix(-0.5, nrow=nrow(dadm), ncol=2)
+#                       colnames(d) <- covs
+#                       d
+#                     }))
+# design_base <- design(factors = list(subjects = 1, S = 1:2),
+#                       Rlevels = 1:2,
+#                       covariates = c('covariate1', 'covariate2'),
+#                       matchfun = matchfun,
+#                       trend = trend,
+#                       formula = list(m ~ lM, s ~ 1, t0 ~ 1),
+#                       contrasts = list(lM = ADmat),
+#                       model = LNR)
+# covariate1 <- rep(1, n_trials*2)
+# covariate2 <- rep(0.25, n_trials*2)
 #
+# p_vector <- sampled_pars(design_base, doMap = FALSE)
+# p_vector[1:6] <- c(-1, 1.5, log(1), log(.2), log(.2), log(.2))
+#
+# dat <- make_data(p_vector, design_base, n_trials = n_trials, covariates = data.frame(covariate1 = covariate1, covariate2 = covariate2),
+#                  return_trialwise_parameters=TRUE)
+#
+# LNR_covmap <- make_emc(dat, design_base, compress = FALSE, n_chains = 1, type = "single")
+#
+# trpars <- attr(dat, 'trialwise_parameters')
+# covmaps <- attr(LNR_covmap[[1]]$data[[1]], 'covariate_maps')
+# head(trpars)
+# head(covmaps[[1]])
+# head(covmaps[[2]])
+#
+# m_without_lMd <- p_vector[1]+ p_vector[['m.w_map1']]*trpars[,4]*covmaps[[1]][,1] + p_vector[['m.w_map1']]*trpars[,5]*covmaps[[1]][,2] +
+#                               p_vector[['m.w_map2']]*trpars[,4]*covmaps[[2]][,1] + p_vector[['m.w_map2']]*trpars[,5]*covmaps[[2]][,2]
+# m <- m_without_lMd
+# m[LNR_covmap[[1]]$data[[1]]$lM==TRUE] <- m[LNR_covmap[[1]]$data[[1]]$lM==TRUE] + 0.5*p_vector[[2]]
+# m[LNR_covmap[[1]]$data[[1]]$lM==FALSE] <- m[LNR_covmap[[1]]$data[[1]]$lM==FALSE] - 0.5*p_vector[[2]]
+# all(round(m,5) == round(trpars[,1], 5))
+#
+#
+# ##
+# # When working with lM it is useful to design  an "average and difference"
+# # contrast matrix, which for binary responses has a simple canonical from:
+# ADmat <- matrix(c(-1/2,1/2),ncol=1,dimnames=list(NULL,"d"))
+# # We also define a match function for lM
+# matchfun=function(d)d$S==d$lR
+# trend <- make_trend(par_names = "m", cov_names = list(c("covariate1")),
+#                     kernels = "delta", ffill_na=TRUE)
+# design_base <- design(factors = list(subjects = 1, S = 1:2),
+#                       Rlevels = 1:2,
+#                       covariates = c('covariate1'),
+#                       matchfun = matchfun,
+#                       trend = trend,
+#                       formula = list(m ~ lM, s ~ 1, t0 ~ 1),
+#                       model = LNR)
+# ##mapped_pars(design_base)
+# p_vector <- sampled_pars(design_base, doMap = FALSE)
+#
+# p_vector[1:7] <- c(-1, 1.5, log(1), log(.2), 1, .5, qnorm(.2))
+# #
 # covariate1 <- c(NA, 1, NA, NA, 1, NA, NA, NA, NA, NA)#, 1, NA, 1, 1, NA, rep(NA, 10))
 #
 # #debug(EMC2:::run_kernel)
